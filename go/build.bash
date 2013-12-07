@@ -25,13 +25,13 @@ go-linux-386 build sds.go
 mv sds ../resources/assets/binaries/sds-linux-386
 
 go-linux-amd64 build sds.go
-mv sds.exe ../resources/assets/binaries/sds-linux-amd64.exe
+mv sds.exe ../resources/assets/binaries/sds-linux-amd64
 
 go-windows-386 build sds.go
 mv sds.exe ../resources/assets/binaries/sds-windows-386.exe
 
 go-windows-amd64 build sds.go
-mv sds ../resources/assets/binaries/sds-windows-amd64
+mv sds ../resources/assets/binaries/sds-windows-amd64.exe
 
 go-darwin-386 build sds.go
 mv sds ../resources/assets/binaries/sds-darwin-386
