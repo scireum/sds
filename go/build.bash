@@ -1,3 +1,8 @@
 source /opt/go/src/golang-crosscompile/crosscompile.bash
 
-go-linux-386 build sds.go -o sds-linux-386
+cd ../go
+go-linux-386 build sds.go
+rm ../resources/assets/binaries/*
+mv sds ../resources/assets/binaries/sds-linux-386
+
+cd ../build
