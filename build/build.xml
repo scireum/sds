@@ -30,12 +30,6 @@
         </exec>
         <antcall target="sirius.make" />
         <exec executable="../resources/assets/binaries/sds-linux-386">
-            <arg value="-server" />
-            <arg value="${env.SDS_SERVER}" />
-            <arg value="-identity" />
-            <arg value="${env.SDS_IDENTITY}" />
-            <arg value="-key" />
-            <arg value="${env.SDS_KEY}" />
             <arg value="push" />
             <arg value="sds-server" />
             <arg value="${dist.dir}/${app.filename}.zip" />
