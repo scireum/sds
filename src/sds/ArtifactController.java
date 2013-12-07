@@ -35,6 +35,11 @@ public class ArtifactController implements Controller {
     @Part
     private Repository repository;
 
+    @Routed("/")
+    public void main(WebContext ctx) throws IOException {
+        ctx.respondWith().template("view/main.html");
+    }
+
     @Routed("/artifacts")
     public void artifacts(WebContext ctx) throws IOException {
         List<String> artifacts = repository.getArtifacts();

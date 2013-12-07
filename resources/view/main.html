@@ -1,120 +1,47 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Sameroomapp</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link rel="stylesheet" href="/assets/jquery/jquery.mobile-1.2.1.min.css" />
-        <script type="text/javascript" src="/assets/jquery/jquery-1.8.3.min.js"></script>
-        <script type="text/javascript" src="/assets/jquery/jquery.mobile-1.2.1.min.js"></script>
-
-        <script type="text/javascript">
-            @include("view.md5.js")
-            @include("view.app.js")
-            @include("view.nano.js")
-        </script>
+        <title>SDS - Software Distribution System</title>
     </head>
 <body>
+    <h1>SDS - Software Distribution System</h1>
+    <p>Clients:</p>
+    <ul>
+        <li><a href="assets/binaries/sds-linux-386">Linux x86</a></li>
+        <li><a href="assets/binaries/sds-linux-amd64">Linux x64</a></li>
+        <li><a href="assets/binaries/sds-windows-386.exe">Windows x86</a></li>
+        <li><a href="assets/binaries/sds-windows-amd64.exe">Windows x64</a></li>
+        <li><a href="assets/binaries/sds-darwin-386.exe">OSX x86</a></li>
+        <li><a href="assets/binaries/sds-darwin-amd64.exe">OSX x64</a></li>
+        <li><a href="assets/binaries/sds-freebsd-386.exe">Freebsd x86</a></li>
+        <li><a href="assets/binaries/sds-freebsd-amd64.exe">Freebsd x64</a></li>
+    </ul>
+    <h2>License</h2>
+    <p>
+<pre>
+The MIT License (MIT)
 
-    <div data-role="page" id="login">
-        <div data-role="header">
-            <h1>Anmelden</h1>
-        </div>
-        <div data-role="content">
-            <a href="#" data-role="button" onclick="createIdentity()">Konto erstellen</a>
-        </div>
-    </div>
+Copyright (c) 2013 scireum GmbH
 
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
 
-    <div data-role="page" id="editAccount">
-        <div data-role="header">
-            <a href="#" data-icon="arrow-l" onclick="$.mobile.changePage('#main')" class="ui-btn-left">Zurück</a>
-            <h1>Konto</h1>
-        </div>
-        <div data-role="content">
-            <form>
-                <label for="editAccountName">Name</label>
-                <input data-clear-btn="true" name="editAccountName" id="editAccountName" value="" type="text">
-                <label for="editAccountCompany">Firma</label>
-                <input data-clear-btn="true" name="editAccountCompany" id="editAccountCompany" value="" type="text">
-                <label for="editAccountPosition">Position</label>
-                <input data-clear-btn="true" name="editAccountPosition" id="editAccountPosition" value="" type="text">
-                <label for="editAccountPhone">Tel.</label>
-                <input data-clear-btn="true" name="editAccountPhone" id="editAccountPhone" value="" type="text">
-                <label for="editAccountMail">eMail</label>
-                <input data-clear-btn="true" name="editAccountMail" id="editAccountMail" value="" type="text">
-                <input type="button" onclick="updateAccount()" value="Speichern">
-            </form>
-        </div>
-    </div>
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-    <div data-role="page" id="joinRoom">
-        <div data-role="header">
-            <a href="#" data-icon="arrow-l" onclick="$.mobile.changePage('#main')" class="ui-btn-left">Zurück</a>
-            <h1>Raum betreten</h1>
-        </div>
-        <div data-role="content">
-            <form>
-                <label for="joinRoomCode">Code</label>
-                <input data-clear-btn="true" name="joinRoomCode" id="joinRoomCode" value="" type="text">
-                <input type="button" onclick="joinRoom()" value="Beitreten">
-            </form>
-        </div>
-    </div>
-
-    <div data-role="page" id="createRoom">
-        <div data-role="header">
-            <a href="#" data-icon="arrow-l" onclick="$.mobile.changePage('#main')" class="ui-btn-left">Zurück</a>
-            <h1>Raum erstellen</h1>
-        </div>
-        <div data-role="content">
-            <form>
-                <label for="createRoomName">Name</label>
-                <input data-clear-btn="true" name="createRoomName" id="createRoomName" value="" type="text">
-                <label for="createRoomLocation">Veranstaltungsort</label>
-                <input data-clear-btn="true" name="createRoomLocation" id="createRoomLocation" value="" type="text">
-                <input type="button" onclick="createRoom()" value="Erstellen">
-            </form>
-        </div>
-    </div>
-
-    <div data-role="page" id="room">
-        <div data-role="header">
-            <a href="#" data-icon="arrow-l" onclick="$.mobile.changePage('#main')" class="ui-btn-left">Zurück</a>
-            <h1 id="roomName"></h1>
-            <div id="roomLocation" style="font-size: small; text-align: center"></div>
-            <a href="#" data-icon="gear" id="" onclick="refreshRoom()" class="ui-btn-right">Aktualisieren</a>
-        </div>
-        <div data-role="content">
-            <div id="roomToken">
-                <div><a href="#" onclick="$('#roomTokenImgContainer').toggle()" id="roomTokenLink"></a></div>
-                <div id="roomTokenImgContainer"><img id="roomTokenImg" src="" /></div>
-            </div>
-            <ul id="roomQuests" data-role="listview" data-inset="true">
-                <li><a href="#">
-                    <img src="http://192.168.192.69:9000/assets/images/defaultAvatar.jpg" />
-                    <h2>Broken Bells</h2>
-                    <p>Broken Bells</p></a>
-                </li>
-            </ul>
-        </div>
-    </div>
-
-
-
-    <div data-role="page" id="main">
-
-        <div data-role="header">
-            <h1>Sameroomapp</h1>
-            <div id="idContainer"></div>
-        </div>
-
-        <div data-role="content">
-            <a href="#" data-role="button" onclick="prepareJoinRoom()">Raum beitreten</a>
-            <a href="#" data-role="button" onclick="$.mobile.changePage('#createRoom')">Raum erstellen</a>
-            <a href="#" data-role="button" onclick="showHistory()">Historie</a>
-            <a href="#" data-role="button" onclick="editAccount()">Konto bearbeiten</a>
-            <a href="#" data-role="button" onclick="killIdentity()">Konto löschen</a>
-        </div>
-    </div>
-
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+</pre>
+    </p>
+    <p>
+        Imprint: http://www.scireum.de/impressum
+    </p>
 </body>
