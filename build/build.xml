@@ -23,7 +23,6 @@
 
     <target name="build">
         <exec executable="bash">
-            <arg value="source" />
             <arg value="/opt/go/src/golang-crosscompile/crosscompile.bash" />
         </exec>
         <exec executable="go-linux-386">
