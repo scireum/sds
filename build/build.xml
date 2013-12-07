@@ -15,7 +15,7 @@
     <property name="no-app" value="true" />
 
     <!-- Version of the product -->
-    <property name="app.version" value="2013-11" />
+    <property name="app.version" value="2013-12" />
     <!-- Name of the product -->
     <property name="app.name" value="Software Distribution System" />
     <!-- Technical of the product which can be used as filename -->
@@ -24,6 +24,12 @@
     <target name="build">
         <exec executable="bash">
             <arg value="../go/build.bash" />
+        </exec>
+        <antcall target="sirius.make" />
+        <exec executable="../resources/assets/binaries/sds-linux-amd64">
+            <arg value="push" />
+            <arg value="sds-server" />
+            <arg value="${dist.dir}/${app.filename}.zip" />
         </exec>
     </target>
 
