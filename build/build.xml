@@ -23,13 +23,7 @@
 
     <target name="build">
         <exec executable="bash">
-            <arg value="/opt/go/src/golang-crosscompile/crosscompile.bash" />
-        </exec>
-        <exec executable="go-linux-386">
-            <arg value="build"/>
-            <arg value="sds.go"/>
-            <arg value="-o"/>
-            <arg value="sds-linux-386"/>
+            <arg value="../go/build.bash" />
         </exec>
     </target>
 
