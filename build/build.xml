@@ -22,6 +22,10 @@
     <property name="app.filename" value="sds-server" />
 
     <target name="build">
+        <exec executable="bash">
+            <arg value="source" />
+            <arg value="/opt/go/src/golang-crosscompile/crosscompile.bash" />
+        </exec>
         <exec executable="go-linux-386">
             <arg value="build"/>
             <arg value="sds.go"/>
