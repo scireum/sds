@@ -195,6 +195,10 @@ public class Repository {
     private static final long ONE_DAY = TimeUnit.MILLISECONDS.convert(1, TimeUnit.DAYS);
 
     public boolean canAccess(String artifact, String user, String hash, int timestamp) {
+        return canAccess(artifact, user, hash, timestamp, true);
+    }
+
+    public boolean canAccess(String artifact, String user, String hash, int timestamp, boolean acceptPublic) {
         try {
             Extension artExt = Extensions.getExtension("artifacts", artifact);
             if (artExt.isDefault()) {
@@ -227,7 +231,7 @@ public class Repository {
     }
 
     public boolean canWriteAccess(String artifact, String user, String hash, int timestamp) {
-        if (!canAccess(artifact, user, hash, timestamp)) {
+        if (!canAccess(artifact, user, hash, timestamp, false)) {
             return false;
         }
 

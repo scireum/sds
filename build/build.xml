@@ -26,7 +26,7 @@
             <arg value="../go/build.bash" />
         </exec>
         <antcall target="sirius.make" />
-        <exec executable="../resources/assets/binaries/sds-linux-amd64">
+        <exec executable="../resources/assets/binaries/sds-linux-368">
             <arg value="push" />
             <arg value="sds-server" />
             <arg value="${dist.dir}/${app.filename}.zip" />
