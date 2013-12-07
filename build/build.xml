@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Made with all the love in the world
+  ~ by scireum in Remshalden, Germany
+  ~
+  ~ Copyright by scireum GmbH
+  ~ http://www.scireum.de - info@scireum.de
+  -->
+
+<project name="sds-server" default="ivy">
+
+    <import file="../sirius/build/build-base.xml" />
+
+    <!-- App module is not required -->
+    <property name="no-app" value="true" />
+
+    <!-- Version of the product -->
+    <property name="app.version" value="2013-11" />
+    <!-- Name of the product -->
+    <property name="app.name" value="Software Distribution System" />
+    <!-- Technical of the product which can be used as filename -->
+    <property name="app.filename" value="sds-server" />
+
+    <target name="build">
+        <exec executable="go-linux-386">
+            <arg value="build"/>
+            <arg value="sds.go"/>
+            <arg value="-o"/>
+            <arg value="sds-linux-386"/>
+        </exec>
+    </target>
+
+</project>
