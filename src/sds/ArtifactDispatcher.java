@@ -4,6 +4,7 @@ import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
+import sirius.kernel.async.Async;
 import sirius.kernel.commons.PriorityCollector;
 import sirius.kernel.di.std.Part;
 import sirius.kernel.di.std.Register;
@@ -13,6 +14,7 @@ import sirius.web.http.WebDispatcher;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -31,7 +33,7 @@ public class ArtifactDispatcher implements WebDispatcher {
     private Repository repository;
 
     @Override
-    public boolean dispatch(WebContext ctx) throws Exception {
+    public boolean dispatch(final WebContext ctx) throws Exception {
         if (!ctx.getRequest().getUri().startsWith("/artifacts")) {
             return false;
         }
@@ -77,22 +79,41 @@ public class ArtifactDispatcher implements WebDispatcher {
             } else {
                 Matcher m = DOWNLOAD_URI.matcher(ctx.getRequestedURI());
                 if (m.matches() && !"/_index".equals(m.group(3))) {
-                    String artifact = m.group(1);
+                    final String artifact = m.group(1);
                     String version = m.group(2);
-                    String path = m.group(3);
+                    final String path = m.group(3);
                     if (repository.canAccess(m.group(1),
                                              ctx.get("user").asString(),
                                              ctx.get("hash").asString(),
                                              ctx.get("timestamp").asInt(0))) {
-                        int v = repository.convertVersion(artifact, version);
-                        repository.sendContent(artifact, v, path, ctx);
+                        final int v = repository.convertVersion(artifact, version);
+                        Async.executor("content").fork(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    repository.sendContent(artifact, v, path, ctx);
+                                } catch (IOException e) {
+                                    Exceptions.ignore(e);
+                                }
+                            }
+                        }).dropOnOverload(new Runnable() {
+                            @Override
+                            public void run() {
+                                ctx.respondWith()
+                                   .error(HttpResponseStatus.INTERNAL_SERVER_ERROR,
+                                          "Request dropped - System overload!");
+                            }
+                        }).execute();
                     } else {
                         ctx.respondWith().status(HttpResponseStatus.UNAUTHORIZED);
                     }
-
                     return true;
                 }
             }
+        } catch (IOException t) {
+            ctx.respondWith()
+               .error(HttpResponseStatus.INTERNAL_SERVER_ERROR, Exceptions.createHandled().error(t).handle());
+            return true;
         } catch (Throwable t) {
             ctx.respondWith().error(HttpResponseStatus.INTERNAL_SERVER_ERROR, Exceptions.handle(t));
             return true;
