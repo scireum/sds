@@ -430,7 +430,8 @@ func load(pack string, version string, file string, filePath string) {
 		return
 	}
 	defer out.Close()
-	req, err := http.NewRequest("GET", server+"/artifacts/"+pack+"/"+version+"/"+file+"?"+computeAuthInfo(), nil)
+	uri := server+"/artifacts/"+pack+"/"+version+"/"+file+"?"+computeAuthInfo()
+	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
 		numErrors++
 		fmt.Printf("Cannot create request for: %s: %v", file, err)
@@ -442,7 +443,7 @@ func load(pack string, version string, file string, filePath string) {
 	resp, err := client.Do(req)
 	if err != nil {
 		numErrors++
-		fmt.Printf("Server error for: %s: %v", file, err)
+		fmt.Printf("Server error for: %s: %v - %s", file, err, uri)
 		fmt.Println()
 		return
 	}
@@ -450,7 +451,7 @@ func load(pack string, version string, file string, filePath string) {
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
 		numErrors++
-		fmt.Printf("Error downloading: %s: %v", file, err)
+		fmt.Printf("Error downloading: %s: %v - %s", file, err, uri)
 		fmt.Println()
 		return
 	}
