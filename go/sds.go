@@ -296,6 +296,14 @@ func pull(pack string, version string, acceptsChange ChangeHandler) {
 			numFilesChecked++
 			var filePath = strings.Replace(f.Name, "/", string(os.PathSeparator), -1)
 			pullFile(pack, version, f, filePath, 5, acceptsChange)
+		} else {
+        	_, err := os.Stat(filepath.Dir(f.Name))
+        	if err != nil {
+		        err = os.MkdirAll(filepath.Dir(f.Name), 0755)
+		        if err != nil {
+			        fmt.Println("Cannot create parent directories for: " + f.Name)
+		        }
+		    }
 		}
 		expectedFiles[f.Name] = true
 	}
@@ -379,24 +387,24 @@ func scanForUnexpectedFiles(dir string, prefix string, acceptsChange ChangeHandl
 	files, _ := ioutil.ReadDir(dir)
 	for _, f := range files {
 		relativePath := prefix + f.Name()
-		if !expectedSet[relativePath+".sdsignore"] {
-			if relativePath != "trash" {
-				if f.IsDir() {
-					scanForUnexpectedFiles(relativePath+string(os.PathSeparator),
-						prefix+f.Name()+"/",
-						acceptsChange,
-						expectedSet)
-				} else if !expectedSet[relativePath] {
-					fmt.Println("- " + relativePath)
-					numFilesDeleted++
-					if acceptsChange() {
-						safeDelete(dir + f.Name())
-					} else {
-						numSkipped++
-					}
-				}
-			}
-		}
+        if relativePath != "trash" {
+            if f.IsDir() {
+                if !expectedSet[relativePath + "/.sdsignore"] {
+                    scanForUnexpectedFiles(relativePath+string(os.PathSeparator),
+                        prefix+f.Name()+"/",
+                        acceptsChange,
+                        expectedSet)
+                }
+            } else if !expectedSet[relativePath] && !expectedSet[relativePath + ".sdsignore"] {
+                fmt.Println("- " + relativePath)
+                numFilesDeleted++
+                if acceptsChange() {
+                    safeDelete(dir + f.Name())
+                } else {
+                    numSkipped++
+                }
+            }
+        }
 	}
 }
 
