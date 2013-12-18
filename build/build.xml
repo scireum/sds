@@ -14,8 +14,8 @@
     <!-- App module is not required -->
     <property name="no-app" value="true" />
 
-    <!-- Version of the product -->
-    <property name="app.version" value="2013-12" />
+    <!-- Version of the product, keep empty if a 4-digit production code should be used -->
+    <property name="app.version" value="" />
     <!-- Name of the product -->
     <property name="app.name" value="Software Distribution System" />
     <!-- Technical of the product which can be used as filename -->
@@ -25,6 +25,12 @@
     <property environment="env"/>
 
     <target name="build">
+        <antcall target="sirius.version" />
+        <replace dir="../go"
+                 token="@VERSION@"
+                 value="${app.version}">
+            <include name="*.go" />
+        </replace>
         <exec executable="bash">
             <arg value="../go/build.bash" />
         </exec>
