@@ -5,7 +5,7 @@
 # Copyright by scireum GmbH
 # http://www.scireum.de - info@scireum.de
 #
-# Generates the sds binaries for all supported plattforms.
+# Generates the sds binaries for all supported platforms.
 #
 # Expects a go installation in /opt/go
 # Also expects the tools of: https://github.com/davecheney/golang-crosscompile in the src directory of go
@@ -22,28 +22,16 @@ rm ../resources/assets/binaries/*
 
 # Build binaries
 go-linux-386 build sds.go
-mv sds ../resources/assets/binaries/sds-linux-386
-
-go-linux-amd64 build sds.go
-mv sds.exe ../resources/assets/binaries/sds-linux-amd64
+mv sds ../resources/assets/binaries/sds-linux
 
 go-windows-386 build sds.go
-mv sds.exe ../resources/assets/binaries/sds-windows-386.exe
-
-go-windows-amd64 build sds.go
-mv sds ../resources/assets/binaries/sds-windows-amd64.exe
+mv sds.exe ../resources/assets/binaries/sds-windows.exe
 
 go-darwin-386 build sds.go
-mv sds ../resources/assets/binaries/sds-darwin-386
-
-go-darwin-amd64 build sds.go
-mv sds ../resources/assets/binaries/sds-darwin-amd64
+mv sds ../resources/assets/binaries/sds-osx
 
 go-freebsd-386 build sds.go
-mv sds ../resources/assets/binaries/sds-freebsd-386
-
-go-freebsd-amd64 build sds.go
-mv sds ../resources/assets/binaries/sds-freebsd-amd64
+mv sds ../resources/assets/binaries/sds-freebsd
 
 # Jump back into the build directory
 cd ../build
