@@ -409,9 +409,6 @@ func scanForUnexpectedFiles(dir string, prefix string, acceptsChange ChangeHandl
 }
 
 func safeDelete(file string) {
-	if strings.Contains(file, "sds") {
-		return
-	}
 	trashPath := "trash" + string(os.PathSeparator) + file
 	err := os.MkdirAll(filepath.Dir(trashPath), 0755)
 	if err != nil {
@@ -490,9 +487,9 @@ func main() {
 	readEnvironment()
 	parseCommandLine()
 	if identity != "" {
-		fmt.Printf("Software Distribution System Version @VERSION@ (%s@%s)", identity, server)
+		fmt.Printf("Software Distribution System [Version @VERSION@] (%s@%s)", identity, server)
 	} else {
-		fmt.Printf("Software Distribution System Version @VERSION@ (%s)", server)
+		fmt.Printf("Software Distribution System [Version @VERSION@] (%s)", server)
 	}
 	fmt.Println()
 	fmt.Println()
