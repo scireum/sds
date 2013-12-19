@@ -25,7 +25,7 @@
     <property name="app.filename" value="sds-server" />
 
     <target name="build">
-        <copyfile src="../go/sds.go" dest="../go/sds-out.go" />
+        <copy file="../go/sds.go" tofile="../go/sds-out.go" />
         <replace dir="../go"
                  token="@VERSION@"
                  value="${app.version}">
