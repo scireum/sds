@@ -490,9 +490,9 @@ func main() {
 	readEnvironment()
 	parseCommandLine()
 	if identity != "" {
-		fmt.Printf("Software Distribution System Version  (%s@%s)", identity, server)
+		fmt.Printf("Software Distribution System Version @VERSION@ (%s@%s)", identity, server)
 	} else {
-		fmt.Printf("Software Distribution System Version  (%s)", server)
+		fmt.Printf("Software Distribution System Version @VERSION@ (%s)", server)
 	}
 	fmt.Println()
 	fmt.Println()

@@ -21,17 +21,17 @@ cd ../go
 rm ../resources/assets/binaries/*
 
 # Build binaries
-go-linux-386 build sds.go
-mv sds ../resources/assets/binaries/sds-linux
+go-linux-386 build sds-out.go
+mv sds-out ../resources/assets/binaries/sds-linux
 
-go-windows-386 build sds.go
-mv sds.exe ../resources/assets/binaries/sds-windows.exe
+go-windows-386 build sds-out.go
+mv sds-out.exe ../resources/assets/binaries/sds-windows.exe
 
-go-darwin-386 build sds.go
-mv sds ../resources/assets/binaries/sds-osx
+go-darwin-386 build sds-out.go
+mv sds-out ../resources/assets/binaries/sds-osx
 
-go-freebsd-386 build sds.go
-mv sds ../resources/assets/binaries/sds-freebsd
+go-freebsd-386 build sds-out.go
+mv sds-out ../resources/assets/binaries/sds-freebsd
 
 # Jump back into the build directory
 cd ../build

@@ -25,14 +25,16 @@
     <property name="app.filename" value="sds-server" />
 
     <target name="build">
+        <copyfile src="../go/sds.go" dest="../go/sds-out.go" />
         <replace dir="../go"
                  token="@VERSION@"
                  value="${app.version}">
-            <include name="*.go" />
+            <include name="sds-out.go" />
         </replace>
         <exec executable="bash">
             <arg value="../go/build.bash" />
         </exec>
+        <delete file="../go/sds-out.go" />
         <antcall target="sirius.make" />
         <exec executable="../resources/assets/binaries/sds-linux">
             <arg value="push" />
