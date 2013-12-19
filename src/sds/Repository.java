@@ -123,8 +123,7 @@ public class Repository {
                                        .notCached()
                                        .download(entry.getName())
                                        .outputStream(HttpResponseStatus.OK,
-                                                     MimeHelper.guessMimeType(path),
-                                                     (int) entry.getSize())) {
+                                                     MimeHelper.guessMimeType(path))) {
                 try (InputStream in = zf.getInputStream(entry)) {
                     ByteStreams.copy(in, out);
                 }
