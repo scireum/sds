@@ -85,11 +85,13 @@ func crcFile(path string) (uint32, error) {
 var server string
 var identity string
 var key string
+var defaultArtifact string
 
 func readEnvironment() {
 	server = os.Getenv("SDS_SERVER")
 	identity = os.Getenv("SDS_IDENTITY")
 	key = os.Getenv("SDS_KEY")
+	defaultArtifact = os.Getenv("SDS_ARTIFACT")
 }
 
 func parseCommandLine() {
@@ -129,9 +131,10 @@ func usage() {
 	fmt.Println(" push <package> <file>")
 	fmt.Println("   Uploads the given file as new version of the given package.")
 	fmt.Println()
-	fmt.Println(" pull <package> <version?>")
+	fmt.Println(" pull <package?> <version?>")
 	fmt.Println("   Synchronizes the local directory to contain all contents of the given package.")
 	fmt.Println("   If a version is specified, this version will be used, otherwise the newest version will be used.")
+	fmt.Println("   If neither a version nor an artifact is specified, the environment variable SDS_ARTIFACT must be set.")
 	fmt.Println()
 	fmt.Println(" verify <package> <version?>")
 	fmt.Println("   Simulates a synchronization of the local directory against the given package.")
@@ -494,6 +497,11 @@ func main() {
 	fmt.Println()
 	fmt.Println()
 
+	if server == "" {
+	    fmt.Println("Please provide a -server parameter or set the SDS_SERVER variable.")
+	    return
+	}
+
 	var cmd = flag.Arg(0)
 	switch cmd {
 	case "push":
@@ -507,10 +515,14 @@ func main() {
 		}
 		return
 	case "pull":
+	    var artifact = defaultArtifact
+	    if len(flag.Args()) > 1 {
+	        artifact = flag.Arg(1)
+	    }
 		if len(flag.Args()) == 3 {
-			pull(flag.Arg(1), flag.Arg(2), pullHandler)
+			pull(artifact, flag.Arg(2), pullHandler)
 		} else {
-			pull(flag.Arg(1), "latest", pullHandler)
+			pull(artifact, "latest", pullHandler)
 		}
 		return
 	case "verify":

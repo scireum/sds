@@ -5,7 +5,7 @@ import com.google.common.collect.Lists;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
-import org.jboss.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpResponseStatus;
 import sirius.kernel.commons.BasicCollector;
 import sirius.kernel.commons.Strings;
 import sirius.kernel.commons.Tuple;
@@ -101,7 +101,7 @@ public class Repository {
     public void sendContent(String artifact, int version, String path, WebContext ctx) throws IOException {
         File baseDir = getArtifactBaseDir(artifact);
         if (!baseDir.exists()) {
-            ctx.respondWith().error(HttpResponseStatus.NOT_FOUND, (Strings.apply("Unknown artifact: %s", artifact)));
+            ctx.respondWith().error(HttpResponseStatus.NOT_FOUND, Strings.apply("Unknown artifact: %s", artifact));
             return;
         }
         File versionDir = new File(baseDir, String.valueOf(version));
@@ -122,8 +122,7 @@ public class Repository {
             try (OutputStream out = ctx.respondWith()
                                        .notCached()
                                        .download(entry.getName())
-                                       .outputStream(HttpResponseStatus.OK,
-                                                     MimeHelper.guessMimeType(path))) {
+                                       .outputStream(HttpResponseStatus.OK, MimeHelper.guessMimeType(path))) {
                 try (InputStream in = zf.getInputStream(entry)) {
                     ByteStreams.copy(in, out);
                 }

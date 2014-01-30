@@ -2,8 +2,8 @@ package sds;
 
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
-import org.jboss.netty.handler.codec.http.HttpMethod;
-import org.jboss.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpResponseStatus;
 import sirius.kernel.async.Async;
 import sirius.kernel.commons.PriorityCollector;
 import sirius.kernel.di.std.Part;
@@ -31,6 +31,11 @@ public class ArtifactDispatcher implements WebDispatcher {
 
     @Part
     private Repository repository;
+
+    @Override
+    public boolean preDispatch(WebContext ctx) throws Exception {
+        return false;
+    }
 
     @Override
     public boolean dispatch(final WebContext ctx) throws Exception {
