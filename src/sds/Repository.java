@@ -22,6 +22,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -152,6 +154,16 @@ public class Repository {
                 result.add(Tuple.create(version.getName(), new File(version, "artifact.zip")));
             }
         }
+        Collections.sort(result, new Comparator<Tuple<String, File>>() {
+            @Override
+            public int compare(Tuple<String, File> o1, Tuple<String, File> o2) {
+                try {
+                    return Integer.parseInt(o2.getFirst()) - Integer.parseInt(o1.getFirst());
+                } catch (Throwable e) {
+                    return 0;
+                }
+            }
+        });
 
         return result;
     }
