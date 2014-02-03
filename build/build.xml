@@ -22,7 +22,7 @@
     <!-- Technical of the product which can be used as filename -->
     <property name="app.filename" value="sds-server" />
 
-    <target name="build">
+    <target name="build" depends="sirius.makeVersionA,sirius.makeVersionB">
         <copy file="../go/sds.go" tofile="../go/sds-out.go" />
         <replace dir="../go"
                  token="@VERSION@"
