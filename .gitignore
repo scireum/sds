@@ -1,0 +1,4 @@
+sds-maven-plugin/target
+workspace.xml
+.idea/libraries
+sds-server/target

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>SDS - Software Distribution System</title>
+        <link rel="stylesheet" media="screen" href="@prefix/assets/system/css/bootstrap.css">
+    </head>
+<body>
+    <div class="container" style="min-height: 350px; margin-top: 30px">
+        <h1>SDS - Software Distribution System</h1>
+        <small>@detailedVersion</small>
+        <div class="row">
+            <div class="span2">
+                <h2>Client</h2>
+                <ul>
+                    <li><a href="assets/SDS.class">SDS.class</a></li>
+                </ul>
+            </div>
+            <div class="span10">
+                <h2>What is it?</h2>
+                <p>
+                    SDS is a tool to ease deployment of software components across low bandwidth connections. Performing
+                    differential updates, only files which really changed are transmitted. Using port 80 and HTTP enables
+                    updates through most firewalls etc. without exotic configuration.<br />
+                    <a target="_blank" href="https://github.com/scireum/sds">Read more on GitHub...</a>
+                </p>
+                <h2>How do I use it?</h2>
+                <p>
+                    SDS consists of two parts: A command line tool called <b>SDS.class</b> and the <b>sds-server</b>.
+                </p>
+                <h3>The Client</h3>
+                <p>
+                    Using the client is quite simple. Download the <b>SDS.class</b> and run it using Java by calling
+                    <b>java SDS -server &lt;servername&gt; list</b>. (Instead of specifying <b>-server</b> for each call, you
+                    can also set the environment variable <b>SDS_SERVER</b>). If you're accessing a private
+                    instance you can also specify a <b>-identity</b> and <b>-key</b> (or <b>SDS_IDENTITY</b> and <b>SDS_KEY</b>).
+                </p>
+                <p>
+                    The client supports the following commands:
+                    <ul>
+                        <li><b>list</b> - Lists all known artifacts</li>
+                        <li><b>list &lt;artifact&gt;</b> - Lists all versions of the given artifact.</li>
+                        <li><b>pull &lt;artifact&gt; [ &lt;version&gt; ]</b> - Synchronizes the local directory with the given artifact.
+                            <b>Warning:</b> This will move all unwanted files into a directory called "trash"!</li>
+                        <li><b>verify &lt;artifact&gt; [ &lt;version&gt; ]</b> - Performs a dry-run for <b>pull</b> - reports a changes without performing them.</li>
+                        <li><b>monkey &lt;artifact&gt; [ &lt;version&gt; ]</b> - Performs a a monkey patch. This will ask if each change should be performed or not.</li>
+                    </ul>
+                </p>
+                <h3>The sds-server</h3>
+                <p>
+                    To install you own SDS Server, download and unpack the latest ZIP from: 
+                    <a href="https://oss.sonatype.org/content/groups/public/com/scireum/sds-server">Sonatype</a>.
+                    Like any <a target="_blank" href="http://sirius-lib.net">SIRIUS</a> application you can now start the server by calling
+                    <code>./sirius.sh start</code> in the install directory (you might need to make it executable: <code>chmod +x sirius.sh</code>).
+                </p>
+                <p>
+                    By default the system operates on port 9000. You can tweak the configuration by creating a file called
+                    <code>instance.conf</code>. Here you can place custom settings like <code>http.port=80</code>. All available
+                    settings can be found in <code>app/application.conf</code>.
+                </p>
+                <h3>The Maven plugin</h3>
+                <p>
+                    A Maven Mojo called <b>sds-maven-plugin</b> can be used to push artifacts into the SDS server:
+                </p>
+<pre>
+    &lt;plugin&gt;
+        &lt;groupId&gt;com.scireum&lt;/groupId&gt;
+        &lt;artifactId&gt;sds-maven-plugin&lt;/artifactId&gt;
+        &lt;version&gt;VERSION&lt;/version&gt;
+        &lt;configuration&gt;
+            &lt;developmentArtifact&gt;&lt;!-- Name of the artifact to push for SNAPSHOT builds --&gt;&lt;/developmentArtifact&gt;
+            &lt;releaseArtifact&gt;&lt;!-- Name of the artifact to push for release builds --&gt;&lt;/releaseArtifact&gt;
+        &lt;/configuration&gt;
+        &lt;executions&gt;
+            &lt;execution&gt;
+                &lt;phase&gt;package&lt;/phase&gt;
+                &lt;goals&gt;
+                    &lt;goal&gt;sds&lt;/goal&gt;
+                &lt;/goals&gt;
+            &lt;/execution&gt;
+        &lt;/executions&gt;
+    &lt;/plugin&gt;
+</pre>
+                <p>
+                    The specify which server to use, add this to your settings.xml:
+<pre>
+     &lt;properties&gt;
+         &lt;sds.server&gt;my-host&lt;/sds.server&gt;
+         &lt;sds.identity&gt;MY_USER&lt;/sds.identity&gt;
+         &lt;sds.key&gt;MY_KEY&lt;/sds.key&gt;
+    &lt;/properties&gt;
+</pre>
+                </p>
+                <h2>License</h2>
+                    <p>
+                        <pre>
+                            The MIT License (MIT)
+
+                            Copyright (c) 2013 scireum GmbH
+
+                            Permission is hereby granted, free of charge, to any person obtaining a copy of
+                            this software and associated documentation files (the "Software"), to deal in
+                            the Software without restriction, including without limitation the rights to
+                            use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+                            the Software, and to permit persons to whom the Software is furnished to do so,
+                            subject to the following conditions:
+
+                            The above copyright notice and this permission notice shall be included in all
+                            copies or substantial portions of the Software.
+
+                            THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+                            IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+                            FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+                            COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+                            IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+                            CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+                        </pre>
+                    </p>
+            </div>
+        </div>
+    </div>
+    <div class="container">
+        <hr style="margin-bottom: 0px"/>
+        <div class="pull-left">
+            <small class="muted">sds-server is made with all the love in the world by <a href="http://www.scireum.de"
+                                                                                     target="_blank">scireum</a> in
+                Remshalden
+            </small>
+        </div>
+        <div class="pull-right">
+            <small class="muted">F**k me on <a target="_blank" href="https://github.com/scireum/sds">GitHub</a></small>
+        </div>
+    </div>
+</body>

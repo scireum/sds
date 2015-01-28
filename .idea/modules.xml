@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/sds.iml" filepath="$PROJECT_DIR$/sds.iml" />
+      <module fileurl="file://$PROJECT_DIR$/sds-maven-plugin/sds-maven-plugin.iml" filepath="$PROJECT_DIR$/sds-maven-plugin/sds-maven-plugin.iml" />
+      <module fileurl="file://$PROJECT_DIR$/sds-server/sds-server.iml" filepath="$PROJECT_DIR$/sds-server/sds-server.iml" />
+    </modules>
+  </component>
+</project>
