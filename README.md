@@ -6,10 +6,6 @@ SDS is a tool to ease deployment of software components across low bandwidth con
 
 ## How do I use it?
 
-SDS consists of three parts: A Java command line tool called SDS, the sds-server and a Maven Upload Mojo.
-
-## The Server
-
 Visit https://oss.sonatype.org/content/groups/public/com/scireum/sds-server/ to download the latest release zip. Once this
 is unpacked, make **sirius.sh** executable and launch the application using **./sirius.sh start**. By default the
 server runs on port 9000. Create a file called **instance.conf** containing *http.port=80* to change this.
