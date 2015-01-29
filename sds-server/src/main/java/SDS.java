@@ -15,7 +15,16 @@ import java.util.function.Function;
 import java.util.zip.CRC32;
 
 /**
- * Created by aha on 22.01.15.
+ * Synchronizes a local directory against a SDS server.
+ * <p>
+ * This client can be started as command line tool and will synchronize a local directory against an
+ * artifact stored in a SDS server.
+ * <p>
+ * To make this as lightweight as possible, no external libraries are referenced. Therefore only this
+ * class file is required and can be launched using <tt>java SDS ...</tt>.
+ *
+ * @author Andreas Haufler (aha@scireum.de)
+ * @since 2015/01
  */
 public class SDS {
 
@@ -542,6 +551,7 @@ public class SDS {
                 System.out.print("Should I perform this change (y/N)? ");
                 String answer = new BufferedReader(new InputStreamReader(System.in)).readLine();
                 if (answer == null) {
+                    System.out.println("Skipped...");
                     return false;
                 }
                 return "y".equalsIgnoreCase(answer.trim());
