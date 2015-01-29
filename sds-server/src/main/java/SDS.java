@@ -225,7 +225,7 @@ public class SDS {
     private void download(String uri, OutputStream target, boolean showProgress) {
         try {
             URL url = makeURL(uri);
-            System.out.println(url);
+            verbose(url);
             byte[] buffer = new byte[8192];
             long bytesSoFar = 0;
             long lastBytesReported = 0;
@@ -323,9 +323,6 @@ public class SDS {
             if (crc(buffer) != (long) get(expectedFile, "crc")) {
                 throw new IllegalStateException("CRC of downloaded file '" + get(expectedFile,
                                                                                  "name") + "' does not match!");
-            }
-            if (!target.exists()) {
-                target.getParentFile().mkdirs();
             }
             Files.move(buffer.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
         } finally {
@@ -587,8 +584,11 @@ public class SDS {
             filesChecked.incrementAndGet();
             String name = (String) get(expectedFile, "name");
             addAllowedPath(name);
+            File file = getExpectedFile(name);
+            if (!file.getParentFile().exists()) {
+                file.getParentFile().mkdirs();
+            }
             if (!name.endsWith(".sdsignore")) {
-                File file = getExpectedFile(name);
                 if (!file.exists()) {
                     if (syncHandler.apply(" + " + name)) {
                         filesAdded.incrementAndGet();
@@ -638,29 +638,37 @@ public class SDS {
         if (children == null) {
             return;
         }
-        File trash = new File("trash");
         for (File child : children) {
-            if (!".".equals(child.getName()) && !"..".equals(child.getName()) && !allowedFiles.contains(prefix + child.getName())) {
-                if (!allowedFiles.contains(prefix+child.getName()+".sdsignore")) {
+            if (child.isFile() && !allowedFiles.contains(prefix + child.getName())) {
+                if (!allowedFiles.contains(prefix + child.getName() + ".sdsignore")) {
                     if (syncHandler.apply(" - " + prefix + child.getName())) {
                         filesRemoved.incrementAndGet();
-                        if (!trash.exists()) {
-                            trash.mkdirs();
-                        }
-                        try {
-                            Files.move(child.toPath(), new File(trash, child.getName()).toPath(), StandardCopyOption.REPLACE_EXISTING);
-                        } catch (IOException e) {
-                            fail(e.getMessage());
-                        }
+                        moveToTrash(prefix, child);
                     }
                 }
-            } else if (child.isDirectory()) {
-                if (!allowedFiles.contains(prefix+child.getName()+"/.sdsignore")) {
-                    scanUnexpected(prefix + child.getName() + "/", child);
+            } else if (child.isDirectory() && !".".equals(child.getName()) && !"..".equals(child.getName())) {
+                if (!allowedFiles.contains(prefix + child.getName() + "/.sdsignore")) {
+                    if (!allowedFiles.contains(prefix + child.getName())) {
+                        moveToTrash(prefix, child);
+                    } else {
+                        scanUnexpected(prefix + child.getName() + "/", child);
+                    }
                 }
             }
         }
     }
 
-
+    private void moveToTrash(String prefix, File child) {
+        try {
+            File target = getExpectedFile("trash/" + prefix + child.getName());
+            if (!target.getParentFile().exists()) {
+                target.getParentFile().mkdirs();
+            }
+            Files.move(child.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            fail(e.getMessage());
+        }
+    }
 }
+
+

@@ -4,8 +4,6 @@
     <file url="file://$PROJECT_DIR$/.gitignore" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/README.md" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/develop.conf" charset="UTF-8" />
-    <file url="file://$PROJECT_DIR$/sds-client" charset="UTF-8" />
-    <file url="file://$PROJECT_DIR$/sds-client/pom.xml" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/sds-maven-plugin" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/sds-server" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/sds-server/src/assembly" charset="UTF-8" />
