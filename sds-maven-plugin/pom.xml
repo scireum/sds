@@ -30,9 +30,9 @@
   </properties>
 
   <scm>
-    <connection>scm:git:git@github.com:scireum/${project.artifactId}.git</connection>
-    <developerConnection>scm:git:git@github.com:scireum/${project.artifactId}.git</developerConnection>
-    <url>git@github.com:scireum/${project.artifactId}.git</url>
+    <connection>scm:git:git@github.com:scireum/sds.git</connection>
+    <developerConnection>scm:git:git@github.com:scireum/sds.git</developerConnection>
+    <url>git@github.com:scireum/sds.git</url>
   </scm>
   <distributionManagement>
     <snapshotRepository>

@@ -17,7 +17,21 @@
     <packaging>jar</packaging>
     <name>Software Distribution System</name>
     <description>Helps to perform differential patches through HTTP</description>
-
+    <url>https://github.com/scireum/sds</url>
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>http://opensource.org/licenses/MIT</url>
+        </license>
+    </licenses>
+    <developers>
+        <developer>
+            <name>scireum</name>
+            <email>info@scireum.de</email>
+            <organization>scireum GmbH</organization>
+            <organizationUrl>http://www.scireum.de</organizationUrl>
+        </developer>
+    </developers>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
@@ -31,6 +45,11 @@
             <url>https://oss.sonatype.org/content/repositories/snapshots</url>
         </snapshotRepository>
     </distributionManagement>
+    <scm>
+        <connection>scm:git:git@github.com:scireum/sds.git</connection>
+        <developerConnection>scm:git:git@github.com:scireum/sds.git</developerConnection>
+        <url>git@github.com:scireum/sds.git</url>
+    </scm>
     <build>
         <resources>
             <resource>
