@@ -13,7 +13,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.scireum</groupId>
     <artifactId>sds-server</artifactId>
-    <version>2.0</version>
+    <version>2.0.1</version>
     <packaging>jar</packaging>
     <name>Software Distribution System</name>
     <description>Helps to perform differential patches through HTTP</description>
@@ -198,7 +198,7 @@
         <dependency>
             <groupId>com.scireum</groupId>
             <artifactId>sirius-web</artifactId>
-            <version>1.0</version>
+            <version>1.1-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>com.scireum</groupId>

@@ -9,6 +9,8 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -183,6 +185,8 @@ public class SDS {
     private String version;
 
     private boolean debug;
+    private String timestamp = DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(LocalDateTime.now())
+                                                                    .replaceAll("[^0-9]", "_");
 
     //------------------------------------------------------------------------
     // Logging and error handling
@@ -200,11 +204,14 @@ public class SDS {
     }
 
     private static void fail(String msg, Object... params) {
+        System.err.println();
+        System.err.println();
         if (params.length > 0) {
             System.err.println(String.format(msg, params));
         } else {
             System.err.println(msg);
         }
+        System.err.println();
         System.err.println();
         System.err.println("Usage: sds -server <name> -identity <identity> -key <key> COMMAND [ARTIFACT] [VERSION]");
         System.err.println();
@@ -487,7 +494,7 @@ public class SDS {
             fail("Unknown command: %s", command);
         } catch (InvocationTargetException e) {
             verbose(e);
-            fail(e.getCause().getMessage());
+            fail(e.getCause().getMessage() + " (" + e.getClass().getName() + ")");
         }
     }
 
@@ -670,7 +677,7 @@ public class SDS {
 
     private void moveToTrash(String prefix, File child) {
         try {
-            File target = getExpectedFile("trash/" + prefix + child.getName());
+            File target = getExpectedFile("trash/" + timestamp + "/" + prefix + child.getName());
             if (!target.getParentFile().exists()) {
                 target.getParentFile().mkdirs();
             }
