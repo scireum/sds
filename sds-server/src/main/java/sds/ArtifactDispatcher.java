@@ -12,7 +12,7 @@ import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
-import sirius.kernel.async.Async;
+import sirius.kernel.async.Tasks;
 import sirius.kernel.commons.PriorityCollector;
 import sirius.kernel.di.std.Part;
 import sirius.kernel.di.std.Register;
@@ -77,6 +77,9 @@ public class ArtifactDispatcher implements WebDispatcher {
         return false;
     }
 
+    @Part
+    private Tasks tasks;
+
     private void handleFileDownload(WebContext ctx, Matcher m) throws IOException {
         final String artifact = m.group(1);
         String version = m.group(2);
@@ -86,18 +89,17 @@ public class ArtifactDispatcher implements WebDispatcher {
                                  ctx.get("hash").asString(),
                                  ctx.get("timestamp").asInt(0))) {
             final int v = repository.convertVersion(artifact, version);
-            Async.executor("content")
+            tasks.executor("content")
+                 .dropOnOverload(() -> ctx.respondWith()
+                                          .error(HttpResponseStatus.INTERNAL_SERVER_ERROR,
+                                                 "Request dropped - System overload!"))
                  .fork(() -> {
                      try {
                          repository.sendContent(artifact, v, path, ctx);
                      } catch (IOException e) {
                          Exceptions.ignore(e);
                      }
-                 })
-                 .dropOnOverload(() -> ctx.respondWith()
-                                          .error(HttpResponseStatus.INTERNAL_SERVER_ERROR,
-                                                 "Request dropped - System overload!"))
-                 .execute();
+                 });
         } else {
             ctx.respondWith().status(HttpResponseStatus.UNAUTHORIZED);
         }
