@@ -1,20 +1,12 @@
-package com.scireum;
-
 /*
- * Copyright 2001-2005 The Apache Software Foundation.
+ * Made with all the love in the world
+ * by scireum in Remshalden, Germany
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright by scireum GmbH
+ * http://www.scireum.de - info@scireum.de
  */
+
+package com.scireum;
 
 import com.google.common.base.Charsets;
 import com.google.common.hash.Hashing;
@@ -26,7 +18,11 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -34,8 +30,6 @@ import java.net.URLEncoder;
 
 /**
  * Deploys the given file to an SDS-Server
- *
- * @author Andreas Haufler (aha@scireum.de)
  */
 @Mojo(name = "sds", defaultPhase = LifecyclePhase.DEPLOY)
 public class SDSMojo extends AbstractMojo {
@@ -99,9 +93,19 @@ public class SDSMojo extends AbstractMojo {
     @Parameter(property = "sds.key")
     private String key;
 
+    /**
+     * Determines if this plugin should be skipped.
+     */
+    @Parameter(property = "sds.skip")
+    private boolean skip;
+
     @Override
     public void execute() throws MojoExecutionException {
         try {
+            if (skip) {
+                getLog().info("Skipping (sds.skip is true).");
+                return;
+            }
             String artifact = determineArtifact();
             if (isEmpty(artifact)) {
                 getLog().info("No artifact name given - skipping...");
@@ -132,7 +136,11 @@ public class SDSMojo extends AbstractMojo {
         upload(artifactFile, c.getOutputStream());
 
         if (c.getResponseCode() != 200) {
-            throw new MojoExecutionException("Cannot upload artifact: " + c.getResponseMessage() + " (" + c.getResponseCode() + ")");
+            throw new MojoExecutionException("Cannot upload artifact: "
+                                             + c.getResponseMessage()
+                                             + " ("
+                                             + c.getResponseCode()
+                                             + ")");
         } else {
             getLog().info("Artifact successfully uploaded to: " + server);
         }
@@ -185,8 +193,18 @@ public class SDSMojo extends AbstractMojo {
         String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
         String input = identity + timestamp + key;
         String hash = Hashing.md5().newHasher().putString(input, Charsets.UTF_8).hash().toString();
-        return new URL("http://" + server + "/artifacts/" + artifact + "?contentHash=" + urlEncode(contentHash) + "&user=" + urlEncode(
-                identity) + "&timestamp=" + urlEncode(timestamp) + "&hash=" + urlEncode(hash));
+        return new URL("http://"
+                       + server
+                       + "/artifacts/"
+                       + artifact
+                       + "?contentHash="
+                       + urlEncode(contentHash)
+                       + "&user="
+                       + urlEncode(identity)
+                       + "&timestamp="
+                       + urlEncode(timestamp)
+                       + "&hash="
+                       + urlEncode(hash));
     }
 
     private String computeContentHash(File artifactFile) throws IOException {

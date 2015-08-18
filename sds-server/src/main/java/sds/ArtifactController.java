@@ -1,3 +1,11 @@
+/*
+ * Made with all the love in the world
+ * by scireum in Remshalden, Germany
+ *
+ * Copyright by scireum GmbH
+ * http://www.scireum.de - info@scireum.de
+ */
+
 package sds;
 
 import sirius.kernel.commons.Strings;
@@ -17,6 +25,9 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * Answers the requests made by the SDS client.
+ */
 @Register
 public class ArtifactController implements Controller {
     @Override

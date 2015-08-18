@@ -1,3 +1,11 @@
+/*
+ * Made with all the love in the world
+ * by scireum in Remshalden, Germany
+ *
+ * Copyright by scireum GmbH
+ * http://www.scireum.de - info@scireum.de
+ */
+
 package sds;
 
 import com.google.common.hash.Hasher;
@@ -18,7 +26,11 @@ import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-
+/**
+ * Handle file up- and download.
+ * <p>
+ * Where the uploads are artifacts as ZIP files and downloads are single files from within those ZIPs.
+ */
 @Register
 public class ArtifactDispatcher implements WebDispatcher {
     @Override
@@ -44,69 +56,12 @@ public class ArtifactDispatcher implements WebDispatcher {
         }
         try {
             if (HttpMethod.POST == ctx.getRequest().getMethod() || HttpMethod.PUT == ctx.getRequest().getMethod()) {
-                Matcher m = UPLOAD_URI.matcher(ctx.getRequestedURI());
-                if (m.matches()) {
-                    File file = ctx.getContentAsFile();
-                    if (file == null) {
-                        ctx.respondWith().error(HttpResponseStatus.BAD_REQUEST, "File-Upload expected!");
-                        return true;
-                    }
-                    if (ctx.get("contentHash").isFilled()) {
-                        Hasher h = Hashing.md5().newHasher();
-                        try (FileInputStream in = new FileInputStream(ctx.getContentAsFile())) {
-                            byte[] buffer = new byte[8192];
-                            int read = in.read(buffer);
-                            while (read > 0) {
-                                h.putBytes(buffer, 0, read);
-                                read = in.read(buffer);
-                            }
-                            if (!h.hash().toString().equals(ctx.get("contentHash").asString())) {
-                                ctx.respondWith().error(HttpResponseStatus.BAD_REQUEST, "MD5 checksum mismatch");
-                                return true;
-                            }
-                        }
-                    }
-                    if (repository.canWriteAccess(m.group(1),
-                                                  ctx.get("user").asString(),
-                                                  ctx.get("hash").asString(),
-                                                  ctx.get("timestamp").asInt(0))) {
-                        repository.handleUpload(m.group(1), ctx.getContentAsFile());
-                        ctx.respondWith().status(HttpResponseStatus.OK);
-                    } else {
-                        ctx.respondWith().status(HttpResponseStatus.UNAUTHORIZED);
-                    }
-                    return true;
-                } else {
-                    ctx.respondWith()
-                       .error(HttpResponseStatus.BAD_REQUEST, "Expected an URI like /artifacts/package-name");
-                    return true;
-                }
+                handleZIPUpload(ctx);
+                return true;
             } else {
                 Matcher m = DOWNLOAD_URI.matcher(ctx.getRequestedURI());
                 if (m.matches() && !"/_index".equals(m.group(3))) {
-                    final String artifact = m.group(1);
-                    String version = m.group(2);
-                    final String path = m.group(3);
-                    if (repository.canAccess(m.group(1),
-                                             ctx.get("user").asString(),
-                                             ctx.get("hash").asString(),
-                                             ctx.get("timestamp").asInt(0))) {
-                        final int v = repository.convertVersion(artifact, version);
-                        Async.executor("content")
-                             .fork(() -> {
-                                 try {
-                                     repository.sendContent(artifact, v, path, ctx);
-                                 } catch (IOException e) {
-                                     Exceptions.ignore(e);
-                                 }
-                             })
-                             .dropOnOverload(() -> ctx.respondWith()
-                                                      .error(HttpResponseStatus.INTERNAL_SERVER_ERROR,
-                                                             "Request dropped - System overload!"))
-                             .execute();
-                    } else {
-                        ctx.respondWith().status(HttpResponseStatus.UNAUTHORIZED);
-                    }
+                    handleFileDownload(ctx, m);
                     return true;
                 }
             }
@@ -120,5 +75,74 @@ public class ArtifactDispatcher implements WebDispatcher {
         }
 
         return false;
+    }
+
+    private void handleFileDownload(WebContext ctx, Matcher m) throws IOException {
+        final String artifact = m.group(1);
+        String version = m.group(2);
+        final String path = m.group(3);
+        if (repository.canAccess(m.group(1),
+                                 ctx.get("user").asString(),
+                                 ctx.get("hash").asString(),
+                                 ctx.get("timestamp").asInt(0))) {
+            final int v = repository.convertVersion(artifact, version);
+            Async.executor("content")
+                 .fork(() -> {
+                     try {
+                         repository.sendContent(artifact, v, path, ctx);
+                     } catch (IOException e) {
+                         Exceptions.ignore(e);
+                     }
+                 })
+                 .dropOnOverload(() -> ctx.respondWith()
+                                          .error(HttpResponseStatus.INTERNAL_SERVER_ERROR,
+                                                 "Request dropped - System overload!"))
+                 .execute();
+        } else {
+            ctx.respondWith().status(HttpResponseStatus.UNAUTHORIZED);
+        }
+    }
+
+    private void handleZIPUpload(WebContext ctx) throws IOException {
+        Matcher m = UPLOAD_URI.matcher(ctx.getRequestedURI());
+        if (!m.matches()) {
+            ctx.respondWith().error(HttpResponseStatus.BAD_REQUEST, "Expected an URI like /artifacts/package-name");
+            return;
+        }
+        File file = ctx.getContentAsFile();
+        if (file == null) {
+            ctx.respondWith().error(HttpResponseStatus.BAD_REQUEST, "File-Upload expected!");
+            return;
+        }
+        if (ctx.get("contentHash").isFilled()) {
+            String computedContentHash = computeContentHash(ctx);
+            String givenContentHash = ctx.get("contentHash").asString();
+            if (!computedContentHash.equals(givenContentHash)) {
+                ctx.respondWith().error(HttpResponseStatus.BAD_REQUEST, "MD5 checksum mismatch");
+                return;
+            }
+        }
+        if (repository.canWriteAccess(m.group(1),
+                                      ctx.get("user").asString(),
+                                      ctx.get("hash").asString(),
+                                      ctx.get("timestamp").asInt(0))) {
+            repository.handleUpload(m.group(1), ctx.getContentAsFile());
+            ctx.respondWith().status(HttpResponseStatus.OK);
+        } else {
+            ctx.respondWith().status(HttpResponseStatus.UNAUTHORIZED);
+        }
+    }
+
+    private String computeContentHash(WebContext ctx) throws IOException {
+        Hasher h = Hashing.md5().newHasher();
+        try (FileInputStream in = new FileInputStream(ctx.getContentAsFile())) {
+            byte[] buffer = new byte[8192];
+            int read = in.read(buffer);
+            while (read > 0) {
+                h.putBytes(buffer, 0, read);
+                read = in.read(buffer);
+            }
+        }
+        return h.hash().toString();
     }
 }

@@ -1,3 +1,11 @@
+/*
+ * Made with all the love in the world
+ * by scireum in Remshalden, Germany
+ *
+ * Copyright by scireum GmbH
+ * http://www.scireum.de - info@scireum.de
+ */
+
 package sds;
 
 import com.google.common.base.Charsets;
@@ -31,6 +39,9 @@ import java.util.function.Consumer;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
+/**
+ * Stores uploaded artifacts in the file system.
+ */
 @Register(classes = Repository.class)
 public class Repository {
 
@@ -126,7 +137,6 @@ public class Repository {
                 throw new IOException(Strings.apply("No version available for: %s", artifact));
             }
             return maxVersion;
-
         } finally {
             lock.unlock();
         }
@@ -221,7 +231,6 @@ public class Repository {
         } finally {
             zf.close();
         }
-
     }
 
     public int convertVersion(String artifact, String version) throws IOException {
