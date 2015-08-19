@@ -45,7 +45,7 @@ import java.util.zip.ZipFile;
 @Register(classes = Repository.class)
 public class Repository {
 
-    private Log LOG = Log.get("sds");
+    private static final Log LOG = Log.get("sds");
 
     private ReentrantLock lock = new ReentrantLock();
 
@@ -156,8 +156,7 @@ public class Repository {
         if (path.startsWith("/")) {
             path = path.substring(1);
         }
-        ZipFile zf = new ZipFile(new File(versionDir, "artifact.zip"));
-        try {
+        try (ZipFile zf = new ZipFile(new File(versionDir, "artifact.zip"))) {
             ZipEntry entry = zf.getEntry(path);
             if (entry == null) {
                 ctx.respondWith().error(HttpResponseStatus.NOT_FOUND, Strings.apply("Unknown file: %s", path));
@@ -171,8 +170,6 @@ public class Repository {
                     ByteStreams.copy(in, out);
                 }
             }
-        } finally {
-            zf.close();
         }
     }
 
@@ -202,6 +199,7 @@ public class Repository {
                 try {
                     return Integer.parseInt(o2.getFirst()) - Integer.parseInt(o1.getFirst());
                 } catch (Throwable e) {
+                    Exceptions.ignore(e);
                     return 0;
                 }
             }
@@ -219,8 +217,7 @@ public class Repository {
         if (!versionDir.exists()) {
             throw new IOException(Strings.apply("Unknown Version: %s", version));
         }
-        ZipFile zf = new ZipFile(new File(versionDir, "artifact.zip"));
-        try {
+        try (ZipFile zf = new ZipFile(new File(versionDir, "artifact.zip"))) {
             Enumeration<? extends ZipEntry> ze = zf.entries();
             while (ze.hasMoreElements()) {
                 ZipEntry entry = ze.nextElement();
@@ -228,8 +225,6 @@ public class Repository {
                     indexCollector.accept(entry);
                 }
             }
-        } finally {
-            zf.close();
         }
     }
 
@@ -247,6 +242,7 @@ public class Repository {
         return canAccess(artifact, user, hash, timestamp, true);
     }
 
+    @SuppressWarnings("unchecked")
     public boolean canAccess(String artifact, String user, String hash, int timestamp, boolean acceptPublic) {
         try {
             Extension artExt = Extensions.getExtension("artifacts", artifact);
@@ -278,7 +274,7 @@ public class Repository {
                 LOG.WARN("Rejected access by user: " + user + ". No key was given!");
                 return false;
             }
-            String input = user + String.valueOf(timestamp) + key;
+            String input = user + timestamp + key;
             if (!Hashing.md5().newHasher().putString(input, Charsets.UTF_8).hash().toString().equals(hash)) {
                 LOG.WARN("Rejected access by user: " + user + ". Invalid hash!");
                 return false;

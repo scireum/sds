@@ -46,7 +46,7 @@ public class ArtifactController implements Controller {
     private Repository repository;
 
     @Routed("/")
-    public void main(WebContext ctx) throws IOException {
+    public void index(WebContext ctx) throws IOException {
         ctx.respondWith().template("view/main.html");
     }
 

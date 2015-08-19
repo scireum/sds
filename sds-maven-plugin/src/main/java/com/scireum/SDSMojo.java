@@ -110,9 +110,8 @@ public class SDSMojo extends AbstractMojo {
             if (isEmpty(artifact)) {
                 getLog().info("No artifact name given - skipping...");
                 return;
-            } else {
-                getLog().info("Artifact: " + artifact);
             }
+            getLog().info("Artifact: " + artifact);
             File artifactFile = determineArtifactFile();
             checkServer();
             checkIdentity();
@@ -260,7 +259,7 @@ public class SDSMojo extends AbstractMojo {
     }
 
     private boolean isEmpty(String value) {
-        return value == null || "".equals(value);
+        return value == null || value.isEmpty();
     }
 
     private String urlEncode(String value) {

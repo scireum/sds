@@ -143,7 +143,7 @@ public class SDS {
     //------------------------------------------------------------------------
 
     private boolean empty(String value) {
-        return value == null || "".equals(value);
+        return value == null || value.isEmpty();
     }
 
     private String urlEncode(String value) {
@@ -183,7 +183,7 @@ public class SDS {
                 }
                 return crc.getValue();
             }
-        } catch (IOException e) {
+        } catch (IOException ignored) {
             fail("Failed to compute the CRC of %s", file.getAbsolutePath());
             return 0;
         }
@@ -217,6 +217,7 @@ public class SDS {
     // Logging and error handling
     //------------------------------------------------------------------------
 
+    @SuppressWarnings("CallToPrintStackTrace")
     private void verbose(Object e) {
         if (debug) {
             if (e instanceof Throwable) {
@@ -368,12 +369,12 @@ public class SDS {
             try (OutputStream out = new BufferedOutputStream(new FileOutputStream(buffer))) {
                 download(baseURI + "/" + get(expectedFile, "name"), out, true);
             }
-            if (buffer.length() != (long) get(expectedFile, "size")) {
+            if (buffer.length() != (Long) get(expectedFile, "size")) {
                 throw new IllegalStateException("Length of downloaded file '"
                                                 + get(expectedFile, "name")
                                                 + "' does not match!");
             }
-            if (crc(buffer) != (long) get(expectedFile, "crc")) {
+            if (crc(buffer) != (Long) get(expectedFile, "crc")) {
                 throw new IllegalStateException("CRC of downloaded file '"
                                                 + get(expectedFile, "name")
                                                 + "' does not match!");
@@ -431,7 +432,7 @@ public class SDS {
                 return Long.valueOf(str);
             }
         } else {
-            throw new IllegalArgumentException("Unexpected JSON character: " + (char) next);
+            throw new IllegalArgumentException("Unexpected JSON character: " + next);
         }
     }
 
@@ -652,13 +653,13 @@ public class SDS {
                         filesDownloaded.incrementAndGet();
                         downloadAndVerify(baseURI, file, expectedFile);
                     }
-                } else if (file.length() != (long) get(expectedFile, "size")) {
+                } else if (file.length() != (Long) get(expectedFile, "size")) {
                     if (syncHandler.apply(" > " + name)) {
                         filesChanged.incrementAndGet();
                         filesDownloaded.incrementAndGet();
                         downloadAndVerify(baseURI, file, expectedFile);
                     }
-                } else if (crc(file) != (long) get(expectedFile, "crc")) {
+                } else if (crc(file) != (Long) get(expectedFile, "crc")) {
                     if (syncHandler.apply(" * " + name)) {
                         filesChanged.incrementAndGet();
                         filesDownloaded.incrementAndGet();
