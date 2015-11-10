@@ -50,6 +50,11 @@ public class ArtifactController implements Controller {
         ctx.respondWith().template("view/main.html");
     }
 
+    @Routed("/sds.class")
+    public void sdsClass(WebContext ctx) throws IOException {
+        ctx.respondWith().download("SDS.class").resource(getClass().getResource("/SDS.class").openConnection());
+    }
+
     @Routed("/artifacts")
     public void artifacts(WebContext ctx) throws IOException {
         List<String> artifacts = repository.getArtifacts();
