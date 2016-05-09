@@ -205,7 +205,7 @@ public class SDSMojo extends AbstractMojo {
                            + "&hash="
                            + urlEncode(hash));
         }
-        return new URL("http://"
+        return new URL("https://"
                        + server
                        + "/artifacts/"
                        + artifact
