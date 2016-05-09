@@ -44,7 +44,7 @@ public class SDSMojo extends AbstractMojo {
      * Contains the name of the file to be deployed. By default we assume a zip created by the assembly plugin:
      * <tt>[artifactId]-[version]-zip.zip</tt>
      */
-    @Parameter(defaultValue = "")
+    @Parameter
     private String file;
 
     /**
@@ -63,14 +63,14 @@ public class SDSMojo extends AbstractMojo {
      * Contains the name of the sds artifact to use when a SNAPSHOT build is to be deployed. If this is left empty,
      * SNAPSHOTS are ignored.
      */
-    @Parameter(defaultValue = "")
+    @Parameter
     private String developmentArtifact;
 
     /**
      * Contains the name of the sds artifact to use when a release build is to be deployed. By default we assume the
      * artifact id.
      */
-    @Parameter(defaultValue = "")
+    @Parameter
     private String releaseArtifact;
 
     /**
@@ -192,6 +192,19 @@ public class SDSMojo extends AbstractMojo {
         String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
         String input = identity + timestamp + key;
         String hash = Hashing.md5().newHasher().putString(input, Charsets.UTF_8).hash().toString();
+        if (server != null && server.startsWith("http")) {
+            return new URL(server
+                           + "/artifacts/"
+                           + artifact
+                           + "?contentHash="
+                           + urlEncode(contentHash)
+                           + "&user="
+                           + urlEncode(identity)
+                           + "&timestamp="
+                           + urlEncode(timestamp)
+                           + "&hash="
+                           + urlEncode(hash));
+        }
         return new URL("http://"
                        + server
                        + "/artifacts/"

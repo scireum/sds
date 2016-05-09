@@ -208,6 +208,7 @@ public class SDS {
     private String command;
     private String artifact;
     private String version;
+    private String filter;
 
     private boolean debug;
     private String timestamp =
@@ -254,7 +255,8 @@ public class SDS {
         System.err.println("verify - Verifies the local directory against the given artifact on the server. "
                            + "Show all changes that would be performed.");
         System.err.println("monkey - Synchronizes the given artifact against the current directory, "
-                           + "but ask if a change should be performed or not.");
+                           + "but ask if a change should be performed or not. "
+                           + "(Use -filter <pattern> to limit which files to ask for).");
         System.err.println();
         System.exit(-1);
     }
@@ -311,7 +313,7 @@ public class SDS {
     private URL makeURL(String uri) {
         try {
             if (!server.startsWith("http")) {
-                server = "http://" + server;
+                server = "https://" + server;
             }
             if (empty(identity)) {
                 return new URL(server + uri);
@@ -595,14 +597,18 @@ public class SDS {
     public void monkey() {
         syncHandler = s -> {
             try {
-                System.out.println(s);
-                System.out.print("Should I perform this change (y/N)? ");
-                String answer = new BufferedReader(new InputStreamReader(System.in)).readLine();
-                if (answer == null) {
-                    System.out.println("Skipped...");
+                if (empty(filter) || s.toLowerCase().contains(filter.toLowerCase())) {
+                    System.out.println(s);
+                    System.out.print("Should I perform this change (y/N)? ");
+                    String answer = new BufferedReader(new InputStreamReader(System.in)).readLine();
+                    if (answer == null) {
+                        System.out.println("Skipped...");
+                        return false;
+                    }
+                    return "y".equalsIgnoreCase(answer.trim());
+                } else {
                     return false;
                 }
-                return "y".equalsIgnoreCase(answer.trim());
             } catch (IOException e) {
                 fail(e.getMessage());
                 return false;
