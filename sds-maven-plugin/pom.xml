@@ -13,20 +13,13 @@
     <parent>
         <groupId>com.scireum</groupId>
         <artifactId>sirius-parent</artifactId>
-        <version>2.1</version>
+        <version>3.0.3</version>
     </parent>
     <artifactId>sds-maven-plugin</artifactId>
-    <version>2.1</version>
+    <version>2.2</version>
     <packaging>maven-plugin</packaging>
     <name>SDS Maven Mojo</name>
     <description>Permits to deploy a maven artifact directly into an SDS server</description>
-    <url>https://github.com/scireum/sds-maven-plugin</url>
-
-    <scm>
-        <connection>scm:git:git@github.com:scireum/sds.git</connection>
-        <developerConnection>scm:git:git@github.com:scireum/sds.git</developerConnection>
-        <url>git@github.com:scireum/sds.git</url>
-    </scm>
 
     <build>
         <plugins>

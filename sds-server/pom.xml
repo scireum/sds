@@ -13,8 +13,8 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>com.scireum</groupId>
-        <artifactId>sirius-app-parent</artifactId>
-        <version>2.1</version>
+        <artifactId>sirius-parent</artifactId>
+        <version>3.0.3</version>
     </parent>
     <artifactId>sds-server</artifactId>
     <version>2.3</version>
@@ -25,7 +25,6 @@
 
     <properties>
         <sds.releaseArtifact>sds-server</sds.releaseArtifact>
-        <skipNexusStagingDeployMojo>false</skipNexusStagingDeployMojo>
         <checkstyle.file>checkstyle-basic.xml</checkstyle.file>
     </properties>
 
