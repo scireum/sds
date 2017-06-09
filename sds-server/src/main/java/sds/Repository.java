@@ -14,14 +14,14 @@ import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import sirius.kernel.Sirius;
 import sirius.kernel.commons.Strings;
 import sirius.kernel.commons.Tuple;
 import sirius.kernel.di.std.ConfigValue;
 import sirius.kernel.di.std.Register;
-import sirius.kernel.extensions.Extension;
-import sirius.kernel.extensions.Extensions;
 import sirius.kernel.health.Exceptions;
 import sirius.kernel.health.Log;
+import sirius.kernel.settings.Extension;
 import sirius.web.http.MimeHelper;
 import sirius.web.http.WebContext;
 
@@ -175,7 +175,7 @@ public class Repository {
 
     public List<String> getArtifacts() throws IOException {
         List<String> result = Lists.newArrayList();
-        for (Extension e : Extensions.getExtensions("artifacts")) {
+        for (Extension e : Sirius.getSettings().getExtensions("artifacts")) {
             result.add(e.getId());
         }
 
@@ -245,7 +245,7 @@ public class Repository {
     @SuppressWarnings("unchecked")
     public boolean canAccess(String artifact, String user, String hash, int timestamp, boolean acceptPublic) {
         try {
-            Extension artExt = Extensions.getExtension("artifacts", artifact);
+            Extension artExt = Sirius.getSettings().getExtension("artifacts", artifact);
             if (artExt.isDefault()) {
                 LOG.WARN("Rejected access to unknown artifact: " + artifact);
                 return false;
@@ -259,7 +259,7 @@ public class Repository {
                 LOG.WARN("Rejected access to artifact: " + artifact + " - timestamp is outdated!");
                 return false;
             }
-            Extension userExt = Extensions.getExtension("users", user);
+            Extension userExt = Sirius.getSettings().getExtension("users", user);
             if (userExt.isDefault()) {
                 LOG.WARN("Rejected access by unknown user: " + user);
                 return false;
@@ -292,6 +292,6 @@ public class Repository {
             return false;
         }
 
-        return Extensions.getExtension("users", user).get("writeAccess").asBoolean(false);
+        return Sirius.getSettings().getExtension("users", user).get("writeAccess").asBoolean(false);
     }
 }

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <module org.jetbrains.idea.maven.project.MavenProjectsManager.isMavenModule="true" type="JAVA_MODULE" version="4">
-  <component name="NewModuleRootManager" LANGUAGE_LEVEL="JDK_1_8" inherit-compiler-output="false">
+  <component name="NewModuleRootManager" LANGUAGE_LEVEL="JDK_1_8">
     <output url="file://$MODULE_DIR$/target/classes" />
     <output-test url="file://$MODULE_DIR$/target/test-classes" />
     <content url="file://$MODULE_DIR$">
@@ -11,18 +11,18 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="library" name="Maven: com.scireum:sirius-web:2.1-SNAPSHOT" level="project" />
-    <orderEntry type="library" name="Maven: com.scireum:sirius-kernel:2.8" level="project" />
+    <orderEntry type="library" name="Maven: com.scireum:sirius-web:8.9" level="project" />
+    <orderEntry type="library" name="Maven: com.scireum:sirius-kernel:6.0" level="project" />
     <orderEntry type="library" name="Maven: com.scireum:sirius-ipl:1.3" level="project" />
-    <orderEntry type="library" name="Maven: io.netty:netty-all:4.0.34.Final" level="project" />
-    <orderEntry type="library" name="Maven: com.scireum:server-sass:1.8.2" level="project" />
+    <orderEntry type="library" name="Maven: io.netty:netty-all:4.1.7.Final" level="project" />
+    <orderEntry type="library" name="Maven: com.scireum:server-sass:3.1" level="project" />
     <orderEntry type="library" name="Maven: com.scireum:parsii:2.0" level="project" />
     <orderEntry type="library" name="Maven: org.rythmengine:rythm-engine:1.0" level="project" />
     <orderEntry type="library" name="Maven: org.eclipse.jdt.core.compiler:ecj:4.3.1" level="project" />
     <orderEntry type="library" name="Maven: com.stevesoft.pat:pat:1.5.3" level="project" />
     <orderEntry type="library" name="Maven: org.apache.commons:commons-lang3:3.1" level="project" />
-    <orderEntry type="library" name="Maven: com.alibaba:fastjson:1.1.37" level="project" />
     <orderEntry type="library" name="Maven: org.mvel:mvel2:2.1.5.Final" level="project" />
+    <orderEntry type="library" name="Maven: com.alibaba:fastjson:1.2.31" level="project" />
     <orderEntry type="library" name="Maven: com.ning:async-http-client:1.9.32" level="project" />
     <orderEntry type="library" name="Maven: io.netty:netty:3.10.5.Final" level="project" />
     <orderEntry type="library" name="Maven: org.slf4j:slf4j-api:1.7.12" level="project" />
@@ -31,6 +31,11 @@
     <orderEntry type="library" name="Maven: com.google.zxing:javase:2.2" level="project" />
     <orderEntry type="library" name="Maven: javax.mail:mail:1.4.7" level="project" />
     <orderEntry type="library" name="Maven: javax.activation:activation:1.1" level="project" />
+    <orderEntry type="library" name="Maven: net.markenwerk:utils-mail-dkim:1.1.7" level="project" />
+    <orderEntry type="library" name="Maven: net.iharder:base64:2.3.9" level="project" />
+    <orderEntry type="library" name="Maven: net.markenwerk:utils-data-fetcher:4.0.1" level="project" />
+    <orderEntry type="library" name="Maven: net.markenwerk:commons-nulls:1.0.2" level="project" />
+    <orderEntry type="library" name="Maven: com.sun.mail:javax.mail:1.5.5" level="project" />
     <orderEntry type="library" name="Maven: org.apache.velocity:velocity:1.7" level="project" />
     <orderEntry type="library" name="Maven: commons-lang:commons-lang:2.4" level="project" />
     <orderEntry type="library" name="Maven: commons-collections:commons-collections:3.2.2" level="project" />
@@ -45,11 +50,11 @@
     <orderEntry type="library" name="Maven: stax:stax-api:1.0.1" level="project" />
     <orderEntry type="library" name="Maven: dom4j:dom4j:1.6.1" level="project" />
     <orderEntry type="library" name="Maven: xml-apis:xml-apis:1.0.b2" level="project" />
-    <orderEntry type="library" scope="TEST" name="Maven: com.scireum:sirius-kernel:test-jar:tests:2.7" level="project" />
-    <orderEntry type="library" name="Maven: com.typesafe:config:1.0.2" level="project" />
-    <orderEntry type="library" name="Maven: com.google.guava:guava:19.0" level="project" />
+    <orderEntry type="library" scope="TEST" name="Maven: com.scireum:sirius-kernel:test-jar:tests:6.8.1" level="project" />
+    <orderEntry type="library" name="Maven: com.typesafe:config:1.3.1" level="project" />
+    <orderEntry type="library" name="Maven: com.google.guava:guava:21.0" level="project" />
     <orderEntry type="library" name="Maven: log4j:log4j:1.2.17" level="project" />
-    <orderEntry type="library" name="Maven: com.google.code.findbugs:jsr305:2.0.2" level="project" />
+    <orderEntry type="library" name="Maven: com.google.code.findbugs:jsr305:3.0.1" level="project" />
     <orderEntry type="library" name="Maven: org.fusesource:sigar:1.6.4" level="project" />
     <orderEntry type="library" scope="TEST" name="Maven: junit:junit:4.11" level="project" />
     <orderEntry type="library" scope="TEST" name="Maven: org.hamcrest:hamcrest-core:1.3" level="project" />
@@ -63,5 +68,9 @@
     <orderEntry type="library" scope="TEST" name="Maven: cglib:cglib:3.1" level="project" />
     <orderEntry type="library" scope="TEST" name="Maven: org.ow2.asm:asm:4.2" level="project" />
     <orderEntry type="library" scope="TEST" name="Maven: org.objenesis:objenesis:2.1" level="project" />
+  </component>
+  <component name="sonarModuleSettings">
+    <option name="localAnalysisScripName" value="&lt;PROJECT&gt;" />
+    <option name="serverName" value="&lt;PROJECT&gt;" />
   </component>
 </module>
