@@ -1,0 +1,16 @@
+{
+  "files": [
+    {
+      name: "abc/def/ghi.datei",
+      md5: "12345"
+    },
+    {
+      name: "abc/def/jkl.datei",
+      md5: "67890"
+    },
+    {
+      name: "abc/xyz.datei",
+      md5: "d41d8cd98f00b204e9800998ecf8427e"
+    }
+  ]
+}
