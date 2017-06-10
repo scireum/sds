@@ -310,8 +310,8 @@ public class SDSMojo extends AbstractMojo {
             String jsonText = CharStreams.toString(new InputStreamReader(is));
             JSONObject json = new JSONObject(jsonText);
 
-            if (c.getResponseCode() != 200) {
-                String error = json.has("error") ? ": " + json.getString("error") : "";
+            if (json.has("error")) {
+                String error = ": " + json.getString("error");
                 throw new IOException("Cannot perform request: "
                                       + c.getResponseMessage()
                                       + " ("
