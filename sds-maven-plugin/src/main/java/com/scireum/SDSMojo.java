@@ -198,9 +198,7 @@ public class SDSMojo extends AbstractMojo {
      */
     private String requestNewVersion(String artifact) throws IOException {
         JSONObject result = doRequest(computeURL(artifact, "_new-version", "&version=" + urlEncode(version)), "GET");
-        if (!result.getBoolean("success")) {
-            throw new IOException("Initializing failed: " + result.getString("error"));
-        }
+
         return result.getString("token");
     }
 
@@ -248,15 +246,10 @@ public class SDSMojo extends AbstractMojo {
     private void uploadDeletedFile(String artifact, DiffTree.DiffTreeNode changedFile) throws IOException {
         getLog().info(String.format("Deleting %s", changedFile.getAbsolutePath()));
 
-        JSONObject result = doRequest(computeURL(artifact,
-                                                 "delete",
-                                                 "&token="
-                                                 + transactionToken
-                                                 + "&path="
-                                                 + urlEncode(changedFile.getAbsolutePath().toString())), "DELETE");
-        if (!result.getBoolean("success")) {
-            throw new IOException("Server threw exception: " + result.getString("error"));
-        }
+        doRequest(computeURL(artifact,
+                             "delete",
+                             "&token=" + transactionToken + "&path=" + urlEncode(changedFile.getAbsolutePath()
+                                                                                            .toString())), "DELETE");
     }
 
     private void uploadNewFile(String artifact, DiffTree.DiffTreeNode changedFile) throws IOException {
@@ -315,7 +308,18 @@ public class SDSMojo extends AbstractMojo {
         c.connect();
         try (InputStream is = c.getInputStream()) {
             String jsonText = CharStreams.toString(new InputStreamReader(is));
-            return new JSONObject(jsonText);
+            JSONObject json = new JSONObject(jsonText);
+
+            if (c.getResponseCode() != 200) {
+                String error = json.has("error") ? ": " + json.getString("error") : "";
+                throw new IOException("Cannot perform request: "
+                                      + c.getResponseMessage()
+                                      + " ("
+                                      + c.getResponseCode()
+                                      + ")"
+                                      + error);
+            }
+            return json;
         }
     }
 
@@ -335,9 +339,8 @@ public class SDSMojo extends AbstractMojo {
                                   + " ("
                                   + c.getResponseCode()
                                   + ")");
-        } else {
-            getLog().info("Artifact successfully uploaded to: " + server);
         }
+        getLog().info("Artifact successfully uploaded to: " + server);
     }
 
     private void upload(Path file, OutputStream outputStream) throws IOException {
