@@ -46,6 +46,11 @@ public class SDSMojo extends AbstractMojo {
     private File target;
 
     /**
+     * Contains the build classes directory (usually "target/classes") as path
+     */
+    private Path targetPath;
+
+    /**
      * Contains the name of the file to be deployed. By default we assume a zip created by the assembly plugin:
      * <tt>[artifactId]-[version]-zip.zip</tt>
      */
@@ -113,6 +118,8 @@ public class SDSMojo extends AbstractMojo {
                 getLog().info("Skipping (sds.skip is true).");
                 return;
             }
+            targetPath = target.toPath().resolve("classes");
+
             String artifact = determineArtifact();
             if (isEmpty(artifact)) {
                 getLog().info("No artifact name given - skipping...");
@@ -188,7 +195,7 @@ public class SDSMojo extends AbstractMojo {
     }
 
     private DiffTree createLocalFileList() throws IOException {
-        return DiffTree.fromFileSystem(target.toPath());
+        return DiffTree.fromFileSystem(targetPath);
     }
 
     /**
@@ -240,7 +247,7 @@ public class SDSMojo extends AbstractMojo {
                             + "&path="
                             + urlEncode(changedFile.getAbsolutePath().toString())),
                  "PUT",
-                 target.toPath().resolve(changedFile.getAbsolutePath()));
+                 targetPath.resolve(changedFile.getAbsolutePath()));
     }
 
     private void uploadDeletedFile(String artifact, DiffTree.DiffTreeNode changedFile) throws IOException {
@@ -260,7 +267,7 @@ public class SDSMojo extends AbstractMojo {
                             "&token=" + transactionToken + "&path=" + urlEncode(changedFile.getAbsolutePath()
                                                                                            .toString())),
                  "PUT",
-                 target.toPath().resolve(changedFile.getAbsolutePath()));
+                 targetPath.resolve(changedFile.getAbsolutePath()));
     }
 
     private void requestFinalize(String artifact) throws IOException {
