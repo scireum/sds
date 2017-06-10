@@ -271,10 +271,7 @@ public class SDSMojo extends AbstractMojo {
     }
 
     private void requestFinalize(String artifact) throws IOException {
-        JSONObject result = doRequest(computeURL(artifact, "_finalize", "&token=" + transactionToken), "GET");
-        if (!result.getBoolean("success")) {
-            throw new IOException("Finalizing failed: " + result.getString("error"));
-        }
+        doRequest(computeURL(artifact, "_finalize", "&token=" + transactionToken), "GET");
     }
 
     private void requestFinalizeError(String artifact) {
@@ -317,14 +314,12 @@ public class SDSMojo extends AbstractMojo {
             String jsonText = CharStreams.toString(new InputStreamReader(is));
             JSONObject json = new JSONObject(jsonText);
 
-            if (json.has("error")) {
-                String error = ": " + json.getString("error");
+            if (json.has("error") && json.getBoolean("error")) {
                 throw new IOException("Cannot perform request: "
-                                      + c.getResponseMessage()
+                                      + json.getString("message")
                                       + " ("
                                       + c.getResponseCode()
-                                      + ")"
-                                      + error);
+                                      + ")");
             }
             return json;
         }
