@@ -239,7 +239,7 @@ public class SDSMojo extends AbstractMojo {
         getLog().info(String.format("Updating %s", changedFile.getAbsolutePath()));
 
         doUpload(computeURL(artifact,
-                            "update",
+                            "",
                             "&token="
                             + transactionToken
                             + "&contentHash="
@@ -254,7 +254,7 @@ public class SDSMojo extends AbstractMojo {
         getLog().info(String.format("Deleting %s", changedFile.getAbsolutePath()));
 
         doRequest(computeURL(artifact,
-                             "delete",
+                             "",
                              "&token=" + transactionToken + "&path=" + urlEncode(changedFile.getAbsolutePath()
                                                                                             .toString())), "DELETE");
     }
@@ -263,7 +263,7 @@ public class SDSMojo extends AbstractMojo {
         getLog().info(String.format("Creating %s", changedFile.getAbsolutePath()));
 
         doUpload(computeURL(artifact,
-                            "delete",
+                            "",
                             "&token=" + transactionToken + "&path=" + urlEncode(changedFile.getAbsolutePath()
                                                                                            .toString())),
                  "PUT",
@@ -277,7 +277,7 @@ public class SDSMojo extends AbstractMojo {
     private void requestFinalizeError(String artifact) {
         try {
             doRequest(computeURL(artifact, "_finalize-error", "&token=" + transactionToken), "GET");
-        } catch (IOException e) {
+        } catch (Exception e) {
             getLog().warn(e);
         }
     }
