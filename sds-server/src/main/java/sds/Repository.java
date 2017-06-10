@@ -11,8 +11,6 @@ package sds;
 import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 import com.google.common.hash.Hashing;
-import com.google.common.io.ByteStreams;
-import com.google.common.io.Files;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import sirius.kernel.Sirius;
 import sirius.kernel.commons.Strings;
@@ -20,24 +18,29 @@ import sirius.kernel.commons.Tuple;
 import sirius.kernel.di.std.ConfigValue;
 import sirius.kernel.di.std.Register;
 import sirius.kernel.health.Exceptions;
+import sirius.kernel.health.HandledException;
 import sirius.kernel.health.Log;
 import sirius.kernel.settings.Extension;
 import sirius.web.http.MimeHelper;
 import sirius.web.http.WebContext;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Enumeration;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 
 /**
  * Stores uploaded artifacts in the file system.
@@ -47,213 +50,311 @@ public class Repository {
 
     private static final Log LOG = Log.get("sds");
 
+    private static final String BACKUP_DIR = "backup";
+    private static final String CURRENT_DIR = "current";
+    private static final String UPLOAD_DIR = "upload";
+
+    private static final String PARAM_ARTIFACTS = "artifacts";
+    private static final String ERROR_PART_REJECTED_BY_USER = "Rejected access by user: ";
+
     private ReentrantLock lock = new ReentrantLock();
+
+    private static ConcurrentHashMap<String, Tuple<String, LocalDateTime>> artifactsLocks = new ConcurrentHashMap<>();
+
+    private static final long ONE_DAY = TimeUnit.MILLISECONDS.convert(1, TimeUnit.DAYS);
 
     @ConfigValue("sds.repositoryPath")
     private String repositoryPath;
 
-    @ConfigValue("sds.maxArtifacts")
-    private int maxArtifacts;
+    @ConfigValue("sds.artifactsLockTime")
+    private long artifactsLockTime;
 
-    public void handleUpload(String artifact, File data) throws IOException {
+    /**
+     * Startes creation of new version of artifact. This MUST be called before files are uploaded for a new version.
+     * Otherwise the uploads will fail. This method will also create a custom lock for the artifact so that no
+     * duplicated uploads can occur.
+     *
+     * @param artifact the artifact to start new version of
+     * @return token which MUST be used for uploads for the new version
+     * @throws IOException if file operations went wrong
+     */
+    public String handleNewArtifactVersion(String artifact) throws IOException {
+        lock.lock();
+        String artifactToken = null;
+        try {
+            artifactToken = lockArtifact(artifact).orElseThrow(() -> Exceptions.createHandled()
+                                                                               .withSystemErrorMessage(
+                                                                                       "Artifact is already locked!")
+                                                                               .handle());
+            Path baseDir = getArtifactBaseDir(artifact);
+            if (!baseDir.toFile().exists()) {
+                Files.createDirectories(baseDir);
+            }
+            Path currentDir = getCurrentDir(artifact);
+            if (!currentDir.toFile().exists()) {
+                Files.createDirectories(currentDir);
+            }
+            Path uploadDir = baseDir.resolve(UPLOAD_DIR);
+
+            Files.deleteIfExists(uploadDir);
+
+            Files.copy(currentDir, uploadDir);
+        } catch (HandledException e) {
+            throw e;
+        } catch (Exception e) {
+            releaseArtifactLock(artifact, artifactToken);
+            throw e;
+        } finally {
+            lock.unlock();
+        }
+        return artifactToken;
+    }
+
+    /**
+     * Deletes a file from a new version which is currently in creation. In order to create a new version, {@link
+     * #handleNewArtifactVersion} has to be called first.
+     * <p>
+     * If no token was provided or the lock for the artifact has timed out, an exception is thrown.
+     *
+     * @param artifact the artifact to delete a file from
+     * @param token    token for identifying lock for artifact
+     * @param file     the file to delete
+     * @throws IOException if deletion of file went wrong
+     */
+    public void handleDelete(String artifact, String token, Path file) throws IOException {
         lock.lock();
         try {
-            int version = 1;
-            File baseDir = getArtifactBaseDir(artifact);
-            if (!baseDir.exists()) {
-                baseDir.mkdirs();
-            } else {
-                version = getLatestVersion(artifact) + 1;
-            }
-            File versionDir = new File(baseDir, String.valueOf(version));
-            versionDir.mkdirs();
-            final File artifactFile = new File(versionDir, "artifact.zip");
-            Files.copy(data, artifactFile);
-            while (baseDir.listFiles().length > maxArtifacts) {
-                if (!deleteOldest(baseDir, versionDir)) {
-                    break;
-                }
-            }
+            assertArtifactLock(artifact, token);
+            Path filePath = getArtifactBaseDir(artifact).resolve(UPLOAD_DIR).resolve(file);
+            Files.deleteIfExists(filePath);
         } finally {
             lock.unlock();
         }
     }
 
-    private boolean deleteOldest(File baseDir, File versionDir) {
+    /**
+     * Adds a file to a new version which is currently in creation. In order to create a new version, {@link
+     * #handleNewArtifactVersion} has to be called first.
+     * <p>
+     * If no token was provided or the lock for the artifact has timed out, an exception is thrown.
+     *
+     * @param artifact    the artifact to add a file to
+     * @param token       the token for identifying lock for artifact
+     * @param file        Path object containing the new file's path in artifact
+     * @param fileContent the content of the file
+     * @throws IOException if writing the file fails
+     */
+    public void handleUpload(String artifact, String token, Path file, InputStream fileContent) throws IOException {
+        lock.lock();
         try {
-            File oldest = null;
-            for (File dir : baseDir.listFiles()) {
-                if (!dir.equals(versionDir) && (oldest == null || dir.lastModified() < oldest.lastModified())) {
-                    oldest = dir;
-                }
-            }
-            if (oldest == null) {
-                return false;
-            }
-
-            for (File child : oldest.listFiles()) {
-                child.delete();
-            }
-            oldest.delete();
-
-            return true;
-        } catch (Exception e) {
-            Exceptions.handle(e);
-            return false;
+            assertArtifactLock(artifact, token);
+            Path filePath = getArtifactBaseDir(artifact).resolve(UPLOAD_DIR).resolve(file);
+            Files.createDirectories(filePath.getParent());
+            Files.copy(fileContent, filePath, StandardCopyOption.REPLACE_EXISTING);
+        } finally {
+            lock.unlock();
         }
     }
 
-    private File getArtifactBaseDir(String artifact) throws IOException {
-        File repo = getRepositoryPath();
-        return new File(repo, artifact);
+    /**
+     * Finishes creation of new version of artifact. This is the last method to call in the creation of a new version.
+     * The custom lock aquired in {@link #handleNewArtifactVersion} will be released and the new artifact will be
+     * available via SDS client.
+     *
+     * @param artifact the artifact to finish creation of new version for
+     * @param token    token for identifying lock for artifact
+     * @throws IOException if file operations went wrong
+     */
+    public void handleFinalizeNewVersion(String artifact, String token) throws IOException {
+        lock.lock();
+        try {
+            assertArtifactLock(artifact, token);
+            Path baseDir = getArtifactBaseDir(artifact);
+
+            Path currentDir = getCurrentDir(artifact);
+
+            Path backupDir = baseDir.resolve(BACKUP_DIR);
+
+            Path uploadDir = baseDir.resolve(UPLOAD_DIR);
+
+            Files.deleteIfExists(backupDir);
+            Files.move(currentDir, backupDir);
+            try {
+                Files.move(uploadDir, currentDir);
+            } catch (IOException e) {
+                Files.move(backupDir, currentDir);
+                throw e;
+            }
+            releaseArtifactLock(artifact, token);
+        } finally {
+            lock.unlock();
+        }
     }
 
-    private File getRepositoryPath() throws IOException {
-        File repo = new File(repositoryPath);
-        if (!repo.exists()) {
+    /**
+     * Cancels creation of new version of artifact.
+     *
+     * @param artifact the artifact to cancel creation of new version for
+     * @param token    token for identifying lock for artifact
+     * @throws IOException if deleting of backup or upload directory fails
+     */
+    public void handleFinalizeError(String artifact, String token) throws IOException {
+        lock.lock();
+        try {
+            assertArtifactLock(artifact, token);
+
+            Path baseDir = getArtifactBaseDir(artifact);
+
+            Path backupDir = baseDir.resolve(BACKUP_DIR);
+
+            Path uploadDir = baseDir.resolve(UPLOAD_DIR);
+
+            Files.deleteIfExists(uploadDir);
+            Files.deleteIfExists(backupDir);
+            releaseArtifactLock(artifact, token);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Returns the {@link Path} leading to the directory containing the current artfact's valid version.
+     *
+     * @param artifact the artifact to get the path for
+     * @return Path object leading to directory containing current valid version
+     * @throws IOException if directory is not present
+     */
+    public Path getCurrentDir(String artifact) throws IOException {
+        return getArtifactBaseDir(artifact).resolve(CURRENT_DIR);
+    }
+
+    private Path getArtifactBaseDir(String artifact) throws IOException {
+        return getRepositoryPath().resolve(artifact);
+    }
+
+    private Path getRepositoryPath() throws IOException {
+        Path repo = Paths.get(repositoryPath);
+        if (!repo.toFile().exists()) {
             throw new IOException(Strings.apply("Repository base path does not exist: %s", repositoryPath));
         }
-        if (!repo.isDirectory()) {
+        if (!repo.toFile().isDirectory()) {
             throw new IOException(Strings.apply("Repository base path isn't a directory: %s", repositoryPath));
         }
         return repo;
     }
 
-    public int getLatestVersion(String artifact) throws IOException {
-        lock.lock();
-        try {
-            File baseDir = getArtifactBaseDir(artifact);
-            if (!baseDir.exists()) {
-                throw new IOException(Strings.apply("Unknown artifact: %s", artifact));
-            }
-            int maxVersion = 0;
-            for (File child : baseDir.listFiles()) {
-                if (child.isDirectory() && child.getName().matches("\\d+")) {
-                    int version = Integer.parseInt(child.getName());
-                    maxVersion = Math.max(maxVersion, version);
-                }
-            }
-            if (maxVersion == 0) {
-                throw new IOException(Strings.apply("No version available for: %s", artifact));
-            }
-            return maxVersion;
-        } finally {
-            lock.unlock();
+    /**
+     * Lists all files of current valid version of artifact.
+     *
+     * @param artifact  the artifact to list files of
+     * @param collector the collector which collects all files in the artifact
+     * @throws IOException if an exception occures while listing files
+     */
+    public void getFileIndex(String artifact, Consumer<IndexFile> collector) throws IOException {
+        if (!getArtifactBaseDir(artifact).toFile().exists()) {
+            throw Exceptions.handle().withSystemErrorMessage("Unknown Artifact: %s", artifact).handle();
         }
+        if (isArtifactLocked(artifact)) {
+            throw Exceptions.createHandled().withSystemErrorMessage("Artifact is currently being uploaded.").handle();
+        }
+        Path currentDir = getCurrentDir(artifact);
+        if (!currentDir.toFile().exists()) {
+            return;
+        }
+        Files.walkFileTree(currentDir, new SimpleFileVisitor<Path>() {
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                collector.accept(new IndexFile(currentDir.relativize(file).toString(),
+                                               Files.size(file),
+                                               Hashing.md5().hashBytes(Files.readAllBytes(file)).toString()));
+
+                return FileVisitResult.CONTINUE;
+            }
+        });
     }
 
-    public void sendContent(String artifact, int version, String path, WebContext ctx) throws IOException {
-        File baseDir = getArtifactBaseDir(artifact);
-        if (!baseDir.exists()) {
+    /**
+     * Sends file of artifact to the requesting client if present.
+     *
+     * @param artifact the artifact containing the file
+     * @param path     the relative path to the file
+     * @param ctx      the current request to send file to
+     * @throws IOException if sending file fails
+     */
+    public void sendContent(String artifact, String path, WebContext ctx) throws IOException {
+        if (!getArtifactBaseDir(artifact).toFile().exists()) {
             ctx.respondWith().error(HttpResponseStatus.NOT_FOUND, Strings.apply("Unknown artifact: %s", artifact));
             return;
         }
-        File versionDir = new File(baseDir, String.valueOf(version));
-        if (!versionDir.exists()) {
-            ctx.respondWith().error(HttpResponseStatus.NOT_FOUND, Strings.apply("Unknown version: %d", version));
+        if (isArtifactLocked(artifact)) {
+            ctx.respondWith().error(HttpResponseStatus.INTERNAL_SERVER_ERROR, "Artifact is currently being uploaded.");
             return;
         }
-        if (path.startsWith("/")) {
-            path = path.substring(1);
+        String cuttedPath = path;
+        if (cuttedPath.startsWith("/")) {
+            cuttedPath = cuttedPath.substring(1);
         }
-        try (ZipFile zf = new ZipFile(new File(versionDir, "artifact.zip"))) {
-            ZipEntry entry = zf.getEntry(path);
-            if (entry == null) {
-                ctx.respondWith().error(HttpResponseStatus.NOT_FOUND, Strings.apply("Unknown file: %s", path));
-                return;
-            }
-            try (OutputStream out = ctx.respondWith()
-                                       .notCached()
-                                       .download(entry.getName())
-                                       .outputStream(HttpResponseStatus.OK, MimeHelper.guessMimeType(path))) {
-                try (InputStream in = zf.getInputStream(entry)) {
-                    ByteStreams.copy(in, out);
-                }
-            }
+        Path filePath = getCurrentDir(artifact).resolve(cuttedPath);
+        if (!filePath.toFile().exists() || !filePath.toFile().isFile()) {
+            ctx.respondWith().error(HttpResponseStatus.NOT_FOUND, Strings.apply("Unknown file: %s", cuttedPath));
+            return;
+        }
+        try (OutputStream out = ctx.respondWith()
+                                   .notCached()
+                                   .download(filePath.getFileName().toString())
+                                   .outputStream(HttpResponseStatus.OK, MimeHelper.guessMimeType(cuttedPath))) {
+            Files.copy(filePath, out);
         }
     }
 
-    public List<String> getArtifacts() throws IOException {
+    /**
+     * Lists all available artifacts.
+     *
+     * @return list of artifacts
+     */
+    public List<String> getArtifacts() {
         List<String> result = Lists.newArrayList();
-        for (Extension e : Sirius.getSettings().getExtensions("artifacts")) {
+        for (Extension e : Sirius.getSettings().getExtensions(PARAM_ARTIFACTS)) {
             result.add(e.getId());
         }
 
         return result;
     }
 
-    public List<Tuple<String, File>> getVersions(String artifact) throws IOException {
-        File baseDir = getArtifactBaseDir(artifact);
-        if (!baseDir.exists()) {
-            throw new IOException(Strings.apply("Unknown Artifact: %s", artifact));
-        }
-        List<Tuple<String, File>> result = Lists.newArrayList();
-        for (File version : getArtifactBaseDir(artifact).listFiles()) {
-            if (version.isDirectory() && !version.getName().startsWith(".")) {
-                result.add(Tuple.create(version.getName(), new File(version, "artifact.zip")));
-            }
-        }
-        Collections.sort(result, new Comparator<Tuple<String, File>>() {
-            @Override
-            public int compare(Tuple<String, File> o1, Tuple<String, File> o2) {
-                try {
-                    return Integer.parseInt(o2.getFirst()) - Integer.parseInt(o1.getFirst());
-                } catch (Throwable e) {
-                    Exceptions.ignore(e);
-                    return 0;
-                }
-            }
-        });
-
-        return result;
-    }
-
-    public void generateIndex(String artifact, String version, Consumer<ZipEntry> indexCollector) throws IOException {
-        File baseDir = getArtifactBaseDir(artifact);
-        if (!baseDir.exists()) {
-            throw new IOException(Strings.apply("Unknown Artifact: %s", artifact));
-        }
-        File versionDir = new File(baseDir, version);
-        if (!versionDir.exists()) {
-            throw new IOException(Strings.apply("Unknown Version: %s", version));
-        }
-        try (ZipFile zf = new ZipFile(new File(versionDir, "artifact.zip"))) {
-            Enumeration<? extends ZipEntry> ze = zf.entries();
-            while (ze.hasMoreElements()) {
-                ZipEntry entry = ze.nextElement();
-                if (!entry.isDirectory()) {
-                    indexCollector.accept(entry);
-                }
-            }
-        }
-    }
-
-    public int convertVersion(String artifact, String version) throws IOException {
-        if ("latest".equals(version)) {
-            return getLatestVersion(artifact);
-        } else {
-            return Integer.parseInt(version);
-        }
-    }
-
-    private static final long ONE_DAY = TimeUnit.MILLISECONDS.convert(1, TimeUnit.DAYS);
-
+    /**
+     * Determines if the given user can access the a given artifact.
+     *
+     * @param artifact  the artifact the user ties to access
+     * @param user      the username
+     * @param hash      the authentication hash
+     * @param timestamp timestamp used to calculate hash
+     * @return <tt>true</tt> if user can access artifact, <tt>false</tt> otherwise
+     */
     public boolean canAccess(String artifact, String user, String hash, int timestamp) {
         return canAccess(artifact, user, hash, timestamp, true);
     }
 
+    /**
+     * Determines if the given user can access the a given artifact.
+     *
+     * @param artifact     the artifact the user ties to access
+     * @param user         the username
+     * @param hash         the authentication hash
+     * @param timestamp    timestamp used to calculate hash
+     * @param acceptPublic if access should be granted for public artifacts
+     * @return <tt>true</tt> if user can access artifact, <tt>false</tt> otherwise
+     */
     @SuppressWarnings("unchecked")
     public boolean canAccess(String artifact, String user, String hash, int timestamp, boolean acceptPublic) {
         try {
-            Extension artExt = Sirius.getSettings().getExtension("artifacts", artifact);
+            Extension artExt = Sirius.getSettings().getExtension(PARAM_ARTIFACTS, artifact);
             if (artExt.isDefault()) {
                 LOG.WARN("Rejected access to unknown artifact: " + artifact);
                 return false;
             }
-            if (artExt.get("publicAccessible").asBoolean(false)) {
-                if (acceptPublic) {
-                    return acceptPublic;
-                }
+            if (artExt.get("publicAccessible").asBoolean(false) && acceptPublic) {
+                return true;
             }
             if (timestamp < TimeUnit.SECONDS.convert(System.currentTimeMillis() - ONE_DAY, TimeUnit.MILLISECONDS)) {
                 LOG.WARN("Rejected access to artifact: " + artifact + " - timestamp is outdated!");
@@ -264,19 +365,19 @@ public class Repository {
                 LOG.WARN("Rejected access by unknown user: " + user);
                 return false;
             }
-            List<String> arts = (List<String>) userExt.get("artifacts").get();
+            List<String> arts = (List<String>) userExt.get(PARAM_ARTIFACTS).get();
             if (arts == null || (!arts.contains(artifact) && !arts.contains("*"))) {
-                LOG.WARN("Rejected access by user: " + user + ". No access to artifact: " + artifact);
+                LOG.WARN(ERROR_PART_REJECTED_BY_USER + user + ". No access to artifact: " + artifact);
                 return false;
             }
             String key = userExt.get("key").asString();
             if (Strings.isEmpty(key)) {
-                LOG.WARN("Rejected access by user: " + user + ". No key was given!");
+                LOG.WARN(ERROR_PART_REJECTED_BY_USER + user + ". No key was given!");
                 return false;
             }
             String input = user + timestamp + key;
             if (!Hashing.md5().newHasher().putString(input, Charsets.UTF_8).hash().toString().equals(hash)) {
-                LOG.WARN("Rejected access by user: " + user + ". Invalid hash!");
+                LOG.WARN(ERROR_PART_REJECTED_BY_USER + user + ". Invalid hash!");
                 return false;
             }
 
@@ -287,11 +388,59 @@ public class Repository {
         }
     }
 
+    /**
+     * Determines if the given user can write to a given artifact.
+     *
+     * @param artifact  the artifact to check write access for
+     * @param user      the username
+     * @param hash      the authentication hash
+     * @param timestamp timestamp used to calculate hash
+     * @return <tt>true</tt> if user can write to the artifact, <tt>false</tt> otherwise
+     */
     public boolean canWriteAccess(String artifact, String user, String hash, int timestamp) {
         if (!canAccess(artifact, user, hash, timestamp, false)) {
             return false;
         }
 
         return Sirius.getSettings().getExtension("users", user).get("writeAccess").asBoolean(false);
+    }
+
+    private synchronized Optional<String> lockArtifact(String artifact) {
+        if (isArtifactLocked(artifact)) {
+            return Optional.empty();
+        }
+
+        String token = Strings.generateCode(7);
+        artifactsLocks.put(artifact, Tuple.create(token, LocalDateTime.now()));
+        return Optional.of(token);
+    }
+
+    private void assertArtifactLock(String artifact, String token) {
+        if (!artifactsLocks.containsKey(artifact)) {
+            throw Exceptions.createHandled()
+                            .withSystemErrorMessage("No lock for artifact present. Call new version first.")
+                            .handle();
+        }
+        if (artifactsLocks.get(artifact).getSecond().plusSeconds(artifactsLockTime).isBefore(LocalDateTime.now())) {
+            throw Exceptions.createHandled()
+                            .withSystemErrorMessage("Lock has timed out. Upload needs to be restarted.")
+                            .handle();
+        }
+        if (!Strings.areEqual(artifactsLocks.get(artifact).getFirst(), token)) {
+            throw Exceptions.createHandled().withSystemErrorMessage("Lock token is invalid.").handle();
+        }
+        artifactsLocks.get(artifact).setSecond(LocalDateTime.now());
+    }
+
+    private boolean isArtifactLocked(String artifact) {
+        return artifactsLocks.containsKey(artifact) && artifactsLocks.get(artifact)
+                                                                     .getSecond()
+                                                                     .plusSeconds(artifactsLockTime)
+                                                                     .isAfter(LocalDateTime.now());
+    }
+
+    private void releaseArtifactLock(String artifact, String token) {
+        assertArtifactLock(artifact, token);
+        artifactsLocks.remove(artifact);
     }
 }

@@ -11,7 +11,6 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,6 +25,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.time.LocalDate;
@@ -41,7 +41,6 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import java.util.zip.CRC32;
 
 /**
  * Synchronizes a local directory against a SDS server.
@@ -55,12 +54,36 @@ import java.util.zip.CRC32;
 public class SDS {
 
     //------------------------------------------------------------------------
+    // Globale variables
+    //------------------------------------------------------------------------
+
+    private static final String UTF_8 = "UTF-8";
+    private static final String SEPARATING_LINES = "-----------------------------------------------";
+    private static final String JSON_CHAR_ERROR = "Unexpected JSON character: ";
+
+    //------------------------------------------------------------------------
+    // Instance variables
+    //------------------------------------------------------------------------
+
+    private String server;
+    private String identity;
+    private String key;
+
+    private String command;
+    private String artifact;
+    private String filter;
+
+    private boolean debug;
+    private String timestamp =
+            DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(LocalDateTime.now()).replaceAll("[^0-9]", "_");
+
+    //------------------------------------------------------------------------
     // Command Line Handling
     //------------------------------------------------------------------------
 
     public static void main(String[] args) {
         System.out.println("SDS - Software Distribution System");
-        System.out.println("-----------------------------------------------");
+        System.out.println(SEPARATING_LINES);
         SDS instance = parseCommandLineAndCreateInstance(args);
         instance.verifyParameters();
         instance.execute();
@@ -92,9 +115,6 @@ public class SDS {
         }
         if (iter.hasNext()) {
             result.applyParameter("artifact", iter.next());
-        }
-        if (iter.hasNext()) {
-            result.applyParameter("version", iter.next());
         }
 
         return result;
@@ -148,15 +168,15 @@ public class SDS {
 
     private String urlEncode(String value) {
         try {
-            return URLEncoder.encode(value, "UTF-8");
+            return URLEncoder.encode(value, UTF_8);
         } catch (UnsupportedEncodingException e) {
-            throw new IllegalArgumentException("UTF-8", e);
+            throw new IllegalArgumentException(UTF_8, e);
         }
     }
 
     private String hashMD5(String value) {
         try {
-            byte[] bytesOfMessage = value.getBytes("UTF-8");
+            byte[] bytesOfMessage = value.getBytes(UTF_8);
             MessageDigest md = MessageDigest.getInstance("MD5");
             byte[] digest = md.digest(bytesOfMessage);
             StringBuilder sb = new StringBuilder(digest.length * 2);
@@ -171,21 +191,19 @@ public class SDS {
         }
     }
 
-    private long crc(File file) {
+    private String hashMD5(Path path) {
         try {
-            CRC32 crc = new CRC32();
-            try (FileInputStream in = new FileInputStream(file)) {
-                byte[] buffer = new byte[4096];
-                int read = in.read(buffer);
-                while (read > 0) {
-                    crc.update(buffer, 0, read);
-                    read = in.read(buffer);
-                }
-                return crc.getValue();
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            byte[] digest = md.digest(Files.readAllBytes(path));
+            StringBuilder sb = new StringBuilder(digest.length * 2);
+            for (byte b : digest) {
+                sb.append(String.format("%02x", b & 0xff));
             }
-        } catch (IOException ignored) {
-            fail("Failed to compute the CRC of %s", file.getAbsolutePath());
-            return 0;
+            return sb.toString();
+        } catch (Throwable e) {
+            verbose(e);
+            fail("Cannot compute MD5 hashes...: %s", e.getMessage());
+            return null;
         }
     }
 
@@ -196,23 +214,6 @@ public class SDS {
         }
         return file;
     }
-
-    //------------------------------------------------------------------------
-    // Instance variables
-    //------------------------------------------------------------------------
-
-    private String server;
-    private String identity;
-    private String key;
-
-    private String command;
-    private String artifact;
-    private String version;
-    private String filter;
-
-    private boolean debug;
-    private String timestamp =
-            DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(LocalDateTime.now()).replaceAll("[^0-9]", "_");
 
     //------------------------------------------------------------------------
     // Logging and error handling
@@ -239,7 +240,7 @@ public class SDS {
         }
         System.err.println();
         System.err.println();
-        System.err.println("Usage: sds -server <name> -identity <identity> -key <key> COMMAND [ARTIFACT] [VERSION]");
+        System.err.println("Usage: sds -server <name> -identity <identity> -key <key> COMMAND [ARTIFACT]");
         System.err.println();
         System.err.println("You can omit the parameters if the appropriate environment variables "
                            + "(SDS_SERVER, SDS_IDENTITY, SDS_KEY) are filled.");
@@ -247,8 +248,7 @@ public class SDS {
         System.err.println("Commands");
         System.err.println("--------");
         System.err.println();
-        System.err.println("list   - Lists all versions of the given artifact, "
-                           + "or all known artifacts if no artifact name is given");
+        System.err.println("list   - Lists all known artifacts");
         System.err.println("pull   - Synchronizes the given artifact against the current directory.");
         System.err.println("         WARNING: This will delete all files in the current directory "
                            + "if they are not part of the artifact distribution.");
@@ -376,8 +376,8 @@ public class SDS {
                                                 + get(expectedFile, "name")
                                                 + "' does not match!");
             }
-            if (crc(buffer) != (Long) get(expectedFile, "crc")) {
-                throw new IllegalStateException("CRC of downloaded file '"
+            if (hashMD5(buffer.toPath()) == null || !hashMD5(buffer.toPath()).equals(get(expectedFile, "md5"))) {
+                throw new IllegalStateException("MD5 of downloaded file '"
                                                 + get(expectedFile, "name")
                                                 + "' does not match!");
             }
@@ -393,7 +393,7 @@ public class SDS {
             download(uri, buffer, debug);
 
             return parseJSON(new BufferedReader(new InputStreamReader(new ByteArrayInputStream(buffer.toByteArray()),
-                                                                      "UTF-8")));
+                                                                      UTF_8)));
         } catch (Throwable e) {
             verbose(e);
             fail("Cannot download '%s' as JSON", uri);
@@ -434,7 +434,7 @@ public class SDS {
                 return Long.valueOf(str);
             }
         } else {
-            throw new IllegalArgumentException("Unexpected JSON character: " + next);
+            throw new IllegalArgumentException(JSON_CHAR_ERROR + next);
         }
     }
 
@@ -450,7 +450,7 @@ public class SDS {
             int next = readFirstNonWhiteSpace(input);
             if (next != ',') {
                 if (next != ']') {
-                    throw new IllegalArgumentException("Unexpected JSON character: "
+                    throw new IllegalArgumentException(JSON_CHAR_ERROR
                                                        + (char) next
                                                        + ". Expected a ']'!");
                 }
@@ -472,7 +472,7 @@ public class SDS {
             next = input.read();
         }
         if (next != '"') {
-            throw new IllegalArgumentException("Unexpected JSON character: " + (char) next + ". Expected a '\"'!");
+            throw new IllegalArgumentException(JSON_CHAR_ERROR + (char) next + ". Expected a '\"'!");
         }
         return result.toString();
     }
@@ -492,18 +492,18 @@ public class SDS {
         int next = readFirstNonWhiteSpace(input);
         while (next != '}') {
             if (next != '"') {
-                throw new IllegalArgumentException("Unexpected JSON character: " + (char) next + ". Expected a '\"'!");
+                throw new IllegalArgumentException(JSON_CHAR_ERROR + (char) next + ". Expected a '\"'!");
             }
             String key = parseString(input);
             next = readFirstNonWhiteSpace(input);
             if (next != ':') {
-                throw new IllegalArgumentException("Unexpected JSON character: " + (char) next + ". Expected a ':'!");
+                throw new IllegalArgumentException(JSON_CHAR_ERROR + (char) next + ". Expected a ':'!");
             }
             result.put(key, parseJSON(input));
             next = readFirstNonWhiteSpace(input);
             if (next != ',') {
                 if (next != '}') {
-                    throw new IllegalArgumentException("Unexpected JSON character: "
+                    throw new IllegalArgumentException(JSON_CHAR_ERROR
                                                        + (char) next
                                                        + ". Expected a '}'!");
                 }
@@ -543,30 +543,8 @@ public class SDS {
     }
 
     public void list() {
-        if (empty(artifact)) {
-            listArtifacts();
-        } else {
-            listVersions();
-        }
-    }
-
-    private void listVersions() {
-        System.out.printf("Versions available for %s on: %s%n", artifact, server);
-        System.out.println("-----------------------------------------------");
-        System.out.println();
-        Object result = jsonCall("/artifacts/" + artifact);
-        if ((boolean) get(result, "error")) {
-            fail((String) get(result, "message"));
-        }
-
-        List<Object> versions = asArray(get(result, "versions"));
-        versions.forEach(o -> System.out.println(get(o, "name") + " (" + get(o, "date") + ", " + get(o, "size") + ")"));
-        System.out.println();
-    }
-
-    private void listArtifacts() {
         System.out.printf("Available artifacts on: %s%n", server);
-        System.out.println("-----------------------------------------------");
+        System.out.println(SEPARATING_LINES);
         System.out.println();
         Object result = jsonCall("/artifacts");
         if ((boolean) get(result, "error")) {
@@ -629,12 +607,9 @@ public class SDS {
         if (empty(artifact)) {
             fail("Please specify an artifact name!");
         }
-        if (empty(version)) {
-            version = "latest";
-        }
-        String baseURI = "/artifacts/" + artifact + "/" + version;
-        System.out.printf("Synchronizing: %s (%s) from %s%n", artifact, version, server);
-        System.out.println("-----------------------------------------------");
+        String baseURI = "/artifacts/" + artifact;
+        System.out.printf("Synchronizing: %s from %s%n", artifact, server);
+        System.out.println(SEPARATING_LINES);
         System.out.println();
         Object result = jsonCall(baseURI + "/_index");
         if ((boolean) get(result, "error")) {
@@ -665,7 +640,7 @@ public class SDS {
                         filesDownloaded.incrementAndGet();
                         downloadAndVerify(baseURI, file, expectedFile);
                     }
-                } else if (crc(file) != (Long) get(expectedFile, "crc")) {
+                } else if (hashMD5(file.toPath()) == null || !hashMD5(file.toPath()).equals(get(expectedFile, "md5"))) {
                     if (syncHandler.apply(" * " + name)) {
                         filesChanged.incrementAndGet();
                         filesDownloaded.incrementAndGet();
@@ -675,25 +650,24 @@ public class SDS {
             }
         }
         scanUnexpected("", new File("."));
-        System.out.println("-----------------------------------------------");
+        System.out.println(SEPARATING_LINES);
         System.out.println(String.format("Files checked......%10s", filesChecked));
         System.out.println(String.format("Files added........%10s", filesAdded));
         System.out.println(String.format("Files changed......%10s", filesChanged));
         System.out.println(String.format("Files downloaded...%10s", filesDownloaded));
         System.out.println(String.format("Files removed......%10s", filesRemoved));
-        System.out.println("-----------------------------------------------");
+        System.out.println(SEPARATING_LINES);
         System.out.println();
     }
 
     private void addAllowedPath(String name) {
-        String uriPart = null;
+        StringBuilder uriPart = new StringBuilder();
         for (String part : name.split("/")) {
-            if (uriPart == null) {
-                uriPart = part;
-            } else {
-                uriPart += "/" + part;
+            if (uriPart.length() > 0) {
+                uriPart.append("/");
             }
-            allowedFiles.add(uriPart);
+            uriPart.append(part);
+            allowedFiles.add(uriPart.toString());
         }
     }
 
