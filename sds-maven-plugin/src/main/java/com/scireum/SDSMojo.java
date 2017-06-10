@@ -130,9 +130,9 @@ public class SDSMojo extends AbstractMojo {
             checkIdentity();
             checkKey();
 
+            DiffTree currentFileList = requestFileList(artifact);
             transactionToken = requestNewVersion(artifact);
             try {
-                DiffTree currentFileList = requestFileList(artifact);
                 DiffTree localFileList = createLocalFileList();
                 currentFileList.calculateDiff(localFileList);
 
