@@ -124,22 +124,24 @@ public class SDSMojo extends AbstractMojo {
             checkKey();
 
             transactionToken = requestNewVersion(artifact);
+            try {
+                DiffTree currentFileList = requestFileList(artifact);
+                DiffTree localFileList = createLocalFileList();
+                currentFileList.calculateDiff(localFileList);
 
-            DiffTree currentFileList = requestFileList(artifact);
-            DiffTree localFileList = createLocalFileList();
-            currentFileList.calculateDiff(localFileList);
-
-            currentFileList.iterate(changedFile -> {
-                try {
+                currentFileList.iterate(changedFile -> {
                     uploadFile(artifact, changedFile);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }, changedFile -> changedFile.isFile() && changedFile.getChangeMode() != ChangeMode.SAME);
+                }, changedFile -> changedFile.isFile() && changedFile.getChangeMode() != ChangeMode.SAME);
 
-            requestFinalize(artifact);
+                requestFinalize(artifact);
+            } catch (Exception e) {
+                requestFinalizeError(artifact);
+                throw e;
+            }
         } catch (MojoExecutionException e) {
             throw e;
+        } catch (RuntimeException e) {
+            throw new MojoExecutionException("Error while uploading artifact: " + e.getMessage(), e.getCause());
         } catch (Exception e) {
             throw new MojoExecutionException("Error while uploading artifact: " + e.getMessage(), e);
         }
@@ -209,18 +211,22 @@ public class SDSMojo extends AbstractMojo {
         return DiffTree.fromJson(files);
     }
 
-    private void uploadFile(String artifact, DiffTree.DiffTreeNode changedFile) throws IOException {
-        switch (changedFile.getChangeMode()) {
-            case NEW:
-                uploadNewFile(artifact, changedFile);
-                break;
-            case DELETED:
-                uploadDeletedFile(artifact, changedFile);
-                break;
-            case CHANGED:
-                uploadChangedFile(artifact, changedFile);
-                break;
-            default:
+    private void uploadFile(String artifact, DiffTree.DiffTreeNode changedFile) {
+        try {
+            switch (changedFile.getChangeMode()) {
+                case NEW:
+                    uploadNewFile(artifact, changedFile);
+                    break;
+                case DELETED:
+                    uploadDeletedFile(artifact, changedFile);
+                    break;
+                case CHANGED:
+                    uploadChangedFile(artifact, changedFile);
+                    break;
+                default:
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
