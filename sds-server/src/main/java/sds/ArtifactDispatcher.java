@@ -51,11 +51,11 @@ public class ArtifactDispatcher implements WebDispatcher {
 
     @Override
     public boolean dispatch(final WebContext ctx) throws Exception {
-        if (!ctx.getRequest().getUri().startsWith("/artifacts")) {
+        if (!ctx.getRequest().uri().startsWith("/artifacts")) {
             return false;
         }
         try {
-            if (HttpMethod.POST == ctx.getRequest().getMethod() || HttpMethod.PUT == ctx.getRequest().getMethod()) {
+            if (HttpMethod.POST == ctx.getRequest().method() || HttpMethod.PUT == ctx.getRequest().method()) {
                 handleZIPUpload(ctx);
                 return true;
             } else {
