@@ -10,23 +10,28 @@ package com.scireum;
 
 import com.google.common.base.Charsets;
 import com.google.common.hash.Hashing;
-import com.google.common.io.ByteStreams;
-import com.google.common.io.Files;
+import com.google.common.io.CharStreams;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
 /**
  * Deploys the given file to an SDS-Server
@@ -99,6 +104,8 @@ public class SDSMojo extends AbstractMojo {
     @Parameter(property = "sds.skip")
     private boolean skip;
 
+    private String transactionToken;
+
     @Override
     public void execute() throws MojoExecutionException {
         try {
@@ -112,115 +119,30 @@ public class SDSMojo extends AbstractMojo {
                 return;
             }
             getLog().info("Artifact: " + artifact);
-            File artifactFile = determineArtifactFile();
             checkServer();
             checkIdentity();
             checkKey();
-            String contentHash = computeContentHash(artifactFile);
-            URL url = computeURL(artifact, contentHash);
-            putArtifact(artifactFile, url);
+
+            transactionToken = requestNewVersion(artifact);
+
+            DiffTree currentFileList = requestFileList(artifact);
+            DiffTree localFileList = createLocalFileList();
+            currentFileList.calculateDiff(localFileList);
+
+            currentFileList.iterate(changedFile -> {
+                try {
+                    uploadFile(artifact, changedFile);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }, changedFile -> changedFile.isFile() && changedFile.getChangeMode() != ChangeMode.SAME);
+
+            requestFinalize(artifact);
         } catch (MojoExecutionException e) {
             throw e;
-        } catch (Throwable e) {
+        } catch (Exception e) {
             throw new MojoExecutionException("Error while uploading artifact: " + e.getMessage(), e);
         }
-    }
-
-    private void putArtifact(File artifactFile, URL url) throws IOException, MojoExecutionException {
-        HttpURLConnection c = (HttpURLConnection) url.openConnection();
-        c.setChunkedStreamingMode(8192);
-        c.setRequestMethod("PUT");
-        c.setDoOutput(true);
-
-        upload(artifactFile, c.getOutputStream());
-
-        if (c.getResponseCode() != 200) {
-            throw new MojoExecutionException("Cannot upload artifact: "
-                                             + c.getResponseMessage()
-                                             + " ("
-                                             + c.getResponseCode()
-                                             + ")");
-        } else {
-            getLog().info("Artifact successfully uploaded to: " + server);
-        }
-    }
-
-    private void upload(File artifactFile, OutputStream outputStream) throws IOException {
-        byte[] buffer = new byte[8192];
-        long totalBytes = artifactFile.length();
-        long bytesSoFar = 0;
-        long lastBytesReported = 0;
-        long lastTimeReported = System.currentTimeMillis();
-        try (FileInputStream in = new FileInputStream(artifactFile)) {
-            int read = in.read(buffer);
-            while (read > 0) {
-                outputStream.write(buffer, 0, read);
-                bytesSoFar += read;
-                long now = System.currentTimeMillis();
-                if (now - lastTimeReported > 5000) {
-                    long timeDiff = (now - lastTimeReported) / 1000;
-                    if (timeDiff == 0) {
-                        timeDiff++;
-                    }
-                    long bytesDiff = bytesSoFar - lastBytesReported;
-                    if (totalBytes == 0) {
-                        totalBytes++;
-                    }
-
-                    getLog().info(String.format("Uploading... (%d%%, %s KB/s)",
-                                                100 * bytesSoFar / totalBytes,
-                                                (bytesDiff / 1024) / timeDiff));
-
-                    lastTimeReported = now;
-                    lastBytesReported = bytesSoFar;
-                }
-                read = in.read(buffer);
-            }
-            long timeDiff = (System.currentTimeMillis() - lastTimeReported) / 1000;
-            if (timeDiff == 0) {
-                timeDiff++;
-            }
-            long bytesDiff = bytesSoFar - lastBytesReported;
-            if (totalBytes == 0) {
-                totalBytes++;
-            }
-            getLog().info(String.format("Uploaded (%s KB/s)", (bytesDiff / 1024) / timeDiff));
-        }
-    }
-
-    private URL computeURL(String artifact, String contentHash) throws MalformedURLException {
-        String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
-        String input = identity + timestamp + key;
-        String hash = Hashing.md5().newHasher().putString(input, Charsets.UTF_8).hash().toString();
-        if (server != null && server.startsWith("http")) {
-            return new URL(server
-                           + "/artifacts/"
-                           + artifact
-                           + "?contentHash="
-                           + urlEncode(contentHash)
-                           + "&user="
-                           + urlEncode(identity)
-                           + "&timestamp="
-                           + urlEncode(timestamp)
-                           + "&hash="
-                           + urlEncode(hash));
-        }
-        return new URL("https://"
-                       + server
-                       + "/artifacts/"
-                       + artifact
-                       + "?contentHash="
-                       + urlEncode(contentHash)
-                       + "&user="
-                       + urlEncode(identity)
-                       + "&timestamp="
-                       + urlEncode(timestamp)
-                       + "&hash="
-                       + urlEncode(hash));
-    }
-
-    private String computeContentHash(File artifactFile) throws IOException {
-        return ByteStreams.hash(Files.newInputStreamSupplier(artifactFile), Hashing.md5()).toString();
     }
 
     private String determineArtifact() {
@@ -259,20 +181,115 @@ public class SDSMojo extends AbstractMojo {
         }
     }
 
-    private File determineArtifactFile() throws MojoExecutionException {
-        if (isEmpty(file)) {
-            file = artifactId + "-" + version + "-zip.zip";
-        }
-        File artifactFile = new File(target, file);
-        if (!artifactFile.exists()) {
-            throw new MojoExecutionException("File " + artifactFile.getAbsolutePath() + " does not exist!");
-        }
-        getLog().info("Uploading file: " + artifactFile.getAbsolutePath());
-        return artifactFile;
-    }
-
     private boolean isEmpty(String value) {
         return value == null || value.isEmpty();
+    }
+
+    private DiffTree createLocalFileList() throws IOException {
+        return DiffTree.fromFileSystem(target.toPath());
+    }
+
+    /**
+     * @param artifact
+     * @return the auth token for the transaction
+     * @throws IOException
+     */
+    private String requestNewVersion(String artifact) throws IOException {
+        JSONObject result = doRequest(computeURL(artifact, "_new-version", "&version=" + urlEncode(version)), "GET");
+        if (!result.getBoolean("success")) {
+            throw new IOException("Initializing failed: " + result.getString("error"));
+        }
+        return result.getString("token");
+    }
+
+    private DiffTree requestFileList(String artifact) throws IOException {
+        JSONObject result = doRequest(computeURL(artifact, "_index", "&token=" + transactionToken), "GET");
+        JSONArray files = result.getJSONArray("files");
+
+        return DiffTree.fromJson(files);
+    }
+
+    private void uploadFile(String artifact, DiffTree.DiffTreeNode changedFile) throws IOException {
+        switch (changedFile.getChangeMode()) {
+            case NEW:
+                uploadNewFile(artifact, changedFile);
+                break;
+            case DELETED:
+                uploadDeletedFile(artifact, changedFile);
+                break;
+            case CHANGED:
+                uploadChangedFile(artifact, changedFile);
+                break;
+            default:
+        }
+    }
+
+    private void uploadChangedFile(String artifact, DiffTree.DiffTreeNode changedFile) throws IOException {
+        getLog().info(String.format("Updating %s", changedFile.getAbsolutePath()));
+
+        doUpload(computeURL(artifact,
+                            "update",
+                            "&token="
+                            + transactionToken
+                            + "&contentHash="
+                            + changedFile.getHash()
+                            + "&path="
+                            + urlEncode(changedFile.getAbsolutePath().toString())),
+                 "PUT",
+                 target.toPath().resolve(changedFile.getAbsolutePath()));
+    }
+
+    private void uploadDeletedFile(String artifact, DiffTree.DiffTreeNode changedFile) throws IOException {
+        getLog().info(String.format("Deleting %s", changedFile.getAbsolutePath()));
+
+        JSONObject result = doRequest(computeURL(artifact,
+                                                 "delete",
+                                                 "&token="
+                                                 + transactionToken
+                                                 + "&path="
+                                                 + urlEncode(changedFile.getAbsolutePath().toString())), "DELETE");
+        if (!result.getBoolean("success")) {
+            throw new IOException("Server threw exception: " + result.getString("error"));
+        }
+    }
+
+    private void uploadNewFile(String artifact, DiffTree.DiffTreeNode changedFile) throws IOException {
+        getLog().info(String.format("Creating %s", changedFile.getAbsolutePath()));
+
+        doUpload(computeURL(artifact,
+                            "delete",
+                            "&token=" + transactionToken + "&path=" + urlEncode(changedFile.getAbsolutePath()
+                                                                                           .toString())),
+                 "PUT",
+                 target.toPath().resolve(changedFile.getAbsolutePath()));
+    }
+
+    private void requestFinalize(String artifact) throws IOException {
+        JSONObject result = doRequest(computeURL(artifact, "_finalize", "&token=" + transactionToken), "GET");
+        if (!result.getBoolean("success")) {
+            throw new IOException("Finalizing failed: " + result.getString("error"));
+        }
+    }
+
+    private void requestFinalizeError(String artifact) {
+        try {
+            doRequest(computeURL(artifact, "_finalize-error", "&token=" + transactionToken), "GET");
+        } catch (IOException e) {
+            getLog().warn(e);
+        }
+    }
+
+    private URL computeURL(String artifact, String path, String queryParameters) throws MalformedURLException {
+        String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
+        String input = identity + timestamp + key;
+        String hash = Hashing.md5().hashString(input, Charsets.UTF_8).toString();
+        String url = "/artifacts/" + artifact + "/" + path + "?user=" + urlEncode(identity) + "&timestamp=" + urlEncode(
+                timestamp) + "&hash=" + urlEncode(hash) + queryParameters;
+        if (server != null && server.startsWith("http")) {
+            return new URL(server + url);
+        } else {
+            return new URL("https://" + server + url);
+        }
     }
 
     private String urlEncode(String value) {
@@ -280,6 +297,83 @@ public class SDSMojo extends AbstractMojo {
             return URLEncoder.encode(value, Charsets.UTF_8.name());
         } catch (UnsupportedEncodingException e) {
             throw new IllegalArgumentException(Charsets.UTF_8.name(), e);
+        }
+    }
+
+    private JSONObject doRequest(URL url, String method) throws IOException {
+        getLog().info(method + " " + url.toString());
+
+        HttpURLConnection c = (HttpURLConnection) url.openConnection();
+        c.setRequestMethod(method);
+        c.setDoOutput(false);
+        c.connect();
+        try (InputStream is = c.getInputStream()) {
+            String jsonText = CharStreams.toString(new InputStreamReader(is));
+            return new JSONObject(jsonText);
+        }
+    }
+
+    private void doUpload(URL url, String method, Path file) throws IOException {
+        getLog().info(method + " " + url.toString());
+
+        HttpURLConnection c = (HttpURLConnection) url.openConnection();
+        c.setChunkedStreamingMode(8192);
+        c.setRequestMethod(method);
+        c.setDoOutput(true);
+
+        upload(file, c.getOutputStream());
+
+        if (c.getResponseCode() != 200) {
+            throw new IOException("Cannot upload artifact: "
+                                  + c.getResponseMessage()
+                                  + " ("
+                                  + c.getResponseCode()
+                                  + ")");
+        } else {
+            getLog().info("Artifact successfully uploaded to: " + server);
+        }
+    }
+
+    private void upload(Path file, OutputStream outputStream) throws IOException {
+        byte[] buffer = new byte[8192];
+        long totalBytes = Files.size(file);
+        long bytesSoFar = 0;
+        long lastBytesReported = 0;
+        long lastTimeReported = System.currentTimeMillis();
+        try (InputStream input = java.nio.file.Files.newInputStream(file, StandardOpenOption.READ)) {
+            int read = input.read(buffer);
+            while (read > 0) {
+                outputStream.write(buffer, 0, read);
+                bytesSoFar += read;
+                long now = System.currentTimeMillis();
+                if (now - lastTimeReported > 5000) {
+                    long timeDiff = (now - lastTimeReported) / 1000;
+                    if (timeDiff == 0) {
+                        timeDiff++;
+                    }
+                    long bytesDiff = bytesSoFar - lastBytesReported;
+                    if (totalBytes == 0) {
+                        totalBytes++;
+                    }
+
+                    getLog().info(String.format("Uploading... (%d%%, %s KB/s)",
+                                                100 * bytesSoFar / totalBytes,
+                                                (bytesDiff / 1024) / timeDiff));
+
+                    lastTimeReported = now;
+                    lastBytesReported = bytesSoFar;
+                }
+                read = input.read(buffer);
+            }
+            long timeDiff = (System.currentTimeMillis() - lastTimeReported) / 1000;
+            if (timeDiff == 0) {
+                timeDiff++;
+            }
+            long bytesDiff = bytesSoFar - lastBytesReported;
+            if (totalBytes == 0) {
+                totalBytes++;
+            }
+            getLog().info(String.format("Uploaded (%s KB/s)", (bytesDiff / 1024) / timeDiff));
         }
     }
 }
