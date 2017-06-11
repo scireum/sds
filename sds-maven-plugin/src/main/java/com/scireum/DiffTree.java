@@ -68,7 +68,6 @@ public class DiffTree {
                     Optional<DiffTreeNode> child = current.getChild(subPath);
                     DiffTreeNode newChild = new DiffTreeNode(current, subPath);
                     newChild.setChangeMode(ChangeMode.NEW);
-                    newChild.setHash(file.getHash());
                     if (!child.isPresent()) {
                         current.getChildren().add(newChild);
                     }
@@ -218,7 +217,7 @@ public class DiffTree {
         }
 
         public void iterate(Consumer<? super DiffTreeNode> visitor, Predicate<? super DiffTreeNode> filter) {
-            getChildren().stream().filter(filter).forEachOrdered(file -> file.iterate(visitor, filter));
+            getChildren().forEach(file -> file.iterate(visitor, filter));
             if (filter.test(this)) {
                 visitor.accept(this);
             }

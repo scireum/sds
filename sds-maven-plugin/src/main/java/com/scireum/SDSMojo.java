@@ -204,13 +204,13 @@ public class SDSMojo extends AbstractMojo {
      * @throws IOException
      */
     private String requestNewVersion(String artifact) throws IOException {
-        JSONObject result = doRequest(computeURL(artifact, "_new-version", "&version=" + urlEncode(version)), "GET");
+        JSONObject result = doRequest(computeURL(artifact, "/_new-version", "&version=" + urlEncode(version)), "GET");
 
         return result.getString("token");
     }
 
     private DiffTree requestFileList(String artifact) throws IOException {
-        JSONObject result = doRequest(computeURL(artifact, "_index", "&token=" + transactionToken), "GET");
+        JSONObject result = doRequest(computeURL(artifact, "/_index", "&token=" + transactionToken), "GET");
         JSONArray files = result.getJSONArray("files");
 
         return DiffTree.fromJson(files);
@@ -271,12 +271,12 @@ public class SDSMojo extends AbstractMojo {
     }
 
     private void requestFinalize(String artifact) throws IOException {
-        doRequest(computeURL(artifact, "_finalize", "&token=" + transactionToken), "GET");
+        doRequest(computeURL(artifact, "/_finalize", "&token=" + transactionToken), "GET");
     }
 
     private void requestFinalizeError(String artifact) {
         try {
-            doRequest(computeURL(artifact, "_finalize-error", "&token=" + transactionToken), "GET");
+            doRequest(computeURL(artifact, "/_finalize-error", "&token=" + transactionToken), "GET");
         } catch (Exception e) {
             getLog().warn(e);
         }
@@ -286,8 +286,16 @@ public class SDSMojo extends AbstractMojo {
         String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
         String input = identity + timestamp + key;
         String hash = Hashing.md5().hashString(input, Charsets.UTF_8).toString();
-        String url = "/artifacts/" + artifact + "/" + path + "?user=" + urlEncode(identity) + "&timestamp=" + urlEncode(
-                timestamp) + "&hash=" + urlEncode(hash) + queryParameters;
+        String url = "/artifacts/"
+                     + artifact
+                     + path
+                     + "?user="
+                     + urlEncode(identity)
+                     + "&timestamp="
+                     + urlEncode(timestamp)
+                     + "&hash="
+                     + urlEncode(hash)
+                     + queryParameters;
         if (server != null && server.startsWith("http")) {
             return new URL(server + url);
         } else {
