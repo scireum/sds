@@ -104,7 +104,7 @@ public class DiffTreeTest {
     }
 
     private DiffTree getFileSystemTree() throws IOException {
-        return DiffTree.fromFileSystem(Paths.get("src/test/java/resources/fs"));
+        return DiffTree.fromFileSystem(Paths.get("src/test/java/resources/fs/classes"));
     }
 
     private DiffTree getJsonTree() throws IOException {

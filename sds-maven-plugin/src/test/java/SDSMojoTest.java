@@ -10,16 +10,16 @@ import com.scireum.SDSMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.junit.Test;
 
-import java.io.File;
 import java.lang.reflect.Field;
+import java.nio.file.Paths;
 
 public class SDSMojoTest {
 
     @Test
     public void testExecute() throws NoSuchFieldException, IllegalAccessException, MojoExecutionException {
         SDSMojo mojo = new SDSMojo();
-        setField(mojo, "target", new File("src/test/java/resources/fs"));
-        setField(mojo, "artifactId", "artifact-id-blabla");
+        setField(mojo, "target", Paths.get("src/test/java/resources/fs").toAbsolutePath().toFile());
+        setField(mojo, "artifactId", "blabla");
         setField(mojo, "version", "supertolle-version");
         setField(mojo, "server", "http://localhost:9000");
         setField(mojo, "identity", "test");
