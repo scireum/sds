@@ -20,7 +20,7 @@ public class SDSMojoTest {
         SDSMojo mojo = new SDSMojo();
         setField(mojo, "target", Paths.get("src/test/java/resources/fs").toAbsolutePath().toFile());
         setField(mojo, "artifactId", "blabla");
-        setField(mojo, "version", "supertolle-version");
+        setField(mojo, "version", "supertolleversion");
         setField(mojo, "server", "http://localhost:9000");
         setField(mojo, "identity", "test");
         setField(mojo, "key", "testtest");

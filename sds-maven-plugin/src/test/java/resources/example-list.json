@@ -2,15 +2,15 @@
   "files": [
     {
       name: "abc/def/ghi.datei",
-      md5: "12345"
+      crc: 12345
     },
     {
       name: "abc/def/jkl.datei",
-      md5: "67890"
+      crc: 67890
     },
     {
       name: "abc/xyz.datei",
-      md5: "d41d8cd98f00b204e9800998ecf8427e"
+      crc: 4268582530
     }
   ]
 }

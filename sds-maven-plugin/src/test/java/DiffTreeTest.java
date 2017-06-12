@@ -18,13 +18,21 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.file.Paths;
 import java.util.Optional;
+import java.util.zip.ZipFile;
 
 public class DiffTreeTest {
 
     @Test
-    public void testFromFileSystemTest() throws IOException {
-        DiffTree tree = getFileSystemTree();
+    public void fromFileSystemTest() throws IOException {
+        testDiffTree(getFileSystemTree());
+    }
 
+    @Test
+    public void fromZipFileTest() throws IOException {
+        testDiffTree(getZipFileTree());
+    }
+
+    private void testDiffTree(DiffTree tree) {
         Optional<DiffTree.DiffTreeNode> file1 = tree.getChild(Paths.get("abc/def/ghi.datei"));
         Optional<DiffTree.DiffTreeNode> file2 = tree.getChild(Paths.get("rst.datei"));
         Optional<DiffTree.DiffTreeNode> file3 = tree.getChild(Paths.get("abc/xyz.datei"));
@@ -64,9 +72,9 @@ public class DiffTreeTest {
         Assert.assertEquals("abc/def/jkl.datei", file2.get().getAbsolutePath().toString());
         Assert.assertEquals("abc/xyz.datei", file3.get().getAbsolutePath().toString());
 
-        Assert.assertEquals("12345", file1.get().getHash());
-        Assert.assertEquals("67890", file2.get().getHash());
-        Assert.assertEquals("d41d8cd98f00b204e9800998ecf8427e", file3.get().getHash());
+        Assert.assertEquals(12345L, file1.get().getHash());
+        Assert.assertEquals(67890L, file2.get().getHash());
+        Assert.assertEquals(4268582530L, file3.get().getHash());
 
         Assert.assertEquals(1, tree.getRoot().getChildren().size());
         DiffTree.DiffTreeNode childAbc = tree.getRoot().getChildren().get(0);
@@ -105,6 +113,11 @@ public class DiffTreeTest {
 
     private DiffTree getFileSystemTree() throws IOException {
         return DiffTree.fromFileSystem(Paths.get("src/test/java/resources/fs/classes"));
+    }
+
+    private DiffTree getZipFileTree() throws IOException {
+        return DiffTree.fromZipFile(new ZipFile(Paths.get("src/test/java/resources/fs/blabla-supertolleversion-zip.zip")
+                                                     .toFile()));
     }
 
     private DiffTree getJsonTree() throws IOException {
