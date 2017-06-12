@@ -133,7 +133,7 @@ public class ArtifactController implements Controller {
             repository.getFileIndex(artifact, indexFile -> {
                 out.beginObject("entry");
                 out.property("name", indexFile.getPath());
-                out.property("md5", indexFile.getMd5());
+                out.property("crc", indexFile.getCRC());
                 out.property("size", indexFile.getSize());
                 out.endObject();
             });

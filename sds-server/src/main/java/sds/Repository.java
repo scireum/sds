@@ -12,6 +12,7 @@ import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 import com.google.common.hash.Hashing;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import org.apache.commons.io.FileUtils;
 import sirius.kernel.Sirius;
 import sirius.kernel.commons.Strings;
 import sirius.kernel.commons.Tuple;
@@ -96,9 +97,8 @@ public class Repository {
             }
             Path uploadDir = baseDir.resolve(UPLOAD_DIR);
 
-            Files.deleteIfExists(uploadDir);
-
-            Files.copy(currentDir, uploadDir);
+            FileUtils.deleteDirectory(uploadDir.toFile());
+            FileUtils.copyDirectory(currentDir.toFile(), uploadDir.toFile());
         } catch (HandledException e) {
             throw e;
         } catch (Exception e) {
@@ -126,7 +126,7 @@ public class Repository {
         try {
             assertArtifactLock(artifact, token);
             Path filePath = getArtifactBaseDir(artifact).resolve(UPLOAD_DIR).resolve(file);
-            Files.deleteIfExists(filePath);
+            FileUtils.forceDelete(filePath.toFile());
         } finally {
             lock.unlock();
         }
@@ -177,7 +177,7 @@ public class Repository {
 
             Path uploadDir = baseDir.resolve(UPLOAD_DIR);
 
-            Files.deleteIfExists(backupDir);
+            FileUtils.deleteDirectory(backupDir.toFile());
             Files.move(currentDir, backupDir);
             try {
                 Files.move(uploadDir, currentDir);
@@ -209,8 +209,8 @@ public class Repository {
 
             Path uploadDir = baseDir.resolve(UPLOAD_DIR);
 
-            Files.deleteIfExists(uploadDir);
-            Files.deleteIfExists(backupDir);
+            FileUtils.deleteDirectory(uploadDir.toFile());
+            FileUtils.deleteDirectory(backupDir.toFile());
             releaseArtifactLock(artifact, token);
         } finally {
             lock.unlock();
@@ -267,7 +267,7 @@ public class Repository {
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                 collector.accept(new IndexFile(currentDir.relativize(file).toString(),
                                                Files.size(file),
-                                               Hashing.md5().hashBytes(Files.readAllBytes(file)).toString()));
+                                               Hashing.crc32().hashBytes(Files.readAllBytes(file)).padToLong()));
 
                 return FileVisitResult.CONTINUE;
             }

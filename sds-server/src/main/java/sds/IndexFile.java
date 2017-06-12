@@ -24,14 +24,14 @@ public class IndexFile {
     private long size;
 
     /**
-     * Contains md5 hash sum of file.
+     * Contains crc32 hash sum of file.
      */
-    private String md5;
+    private long crc;
 
-    public IndexFile(String path, long size, String md5) {
+    public IndexFile(String path, long size, long crc) {
         this.path = path;
         this.size = size;
-        this.md5 = md5;
+        this.crc = crc;
     }
 
     public String getPath() {
@@ -42,7 +42,7 @@ public class IndexFile {
         return size;
     }
 
-    public String getMd5() {
-        return md5;
+    public long getCRC() {
+        return crc;
     }
 }

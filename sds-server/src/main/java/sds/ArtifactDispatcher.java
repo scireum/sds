@@ -154,9 +154,9 @@ public class ArtifactDispatcher implements WebDispatcher {
             return;
         }
         if (ctx.get("contentHash").isFilled()) {
-            String computedContentHash = computeContentHash(ctx);
-            String givenContentHash = ctx.get("contentHash").asString();
-            if (!computedContentHash.equals(givenContentHash)) {
+            long computedContentHash = computeContentHash(ctx);
+            long givenContentHash = ctx.get("contentHash").asLong(0);
+            if (computedContentHash != givenContentHash) {
                 ctx.respondWith().error(HttpResponseStatus.BAD_REQUEST, "MD5 checksum mismatch");
                 return;
             }
@@ -192,8 +192,8 @@ public class ArtifactDispatcher implements WebDispatcher {
         }
     }
 
-    private String computeContentHash(WebContext ctx) throws IOException {
-        Hasher h = Hashing.md5().newHasher();
+    private long computeContentHash(WebContext ctx) throws IOException {
+        Hasher h = Hashing.crc32().newHasher();
         try (FileInputStream in = new FileInputStream(ctx.getContentAsFile())) {
             byte[] buffer = new byte[8192];
             int read = in.read(buffer);
@@ -202,7 +202,7 @@ public class ArtifactDispatcher implements WebDispatcher {
                 read = in.read(buffer);
             }
         }
-        return h.hash().toString();
+        return h.hash().padToLong();
     }
 
     private boolean wellKnownRoute(String routePart) {
