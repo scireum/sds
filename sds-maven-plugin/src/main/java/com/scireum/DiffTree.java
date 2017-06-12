@@ -11,11 +11,11 @@ package com.scireum;
 import com.google.common.base.Charsets;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
-import com.google.common.io.Files;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
@@ -23,8 +23,11 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.zip.ZipFile;
 
 public class DiffTree {
 
@@ -43,7 +46,19 @@ public class DiffTree {
     }
 
     public void iterate(Consumer<? super DiffTreeNode> visitor, Predicate<? super DiffTreeNode> filter) {
-        root.iterate(visitor, filter);
+        root.iterate(file -> {
+            visitor.accept(file);
+            return true;
+        }, filter);
+    }
+
+    /**
+     * @param visitor
+     * @param filter
+     * @return whether all nodes have been visited
+     */
+    public boolean iterate(Function<? super DiffTreeNode, Boolean> visitor, Predicate<? super DiffTreeNode> filter) {
+        return root.iterate(visitor, filter);
     }
 
     public void recomputeHashes() {
@@ -55,7 +70,7 @@ public class DiffTree {
             Path absolutePath = file.getAbsolutePath();
             Optional<DiffTreeNode> ownFile = getChild(absolutePath);
             if (ownFile.isPresent()) {
-                if (file.getHash().equals(ownFile.get().getHash())) {
+                if (file.getHash() == ownFile.get().getHash()) {
                     ownFile.get().setChangeMode(ChangeMode.SAME);
                 } else {
                     ownFile.get().setHash(file.getHash());
@@ -73,6 +88,7 @@ public class DiffTree {
                     }
                     current = child.orElse(newChild);
                 }
+                current.setHash(file.getHash());
             }
         }, diffTreeNode -> diffTreeNode.getParent() != null);
         iterate(file -> {
@@ -83,22 +99,33 @@ public class DiffTree {
     }
 
     public static DiffTree fromJson(JSONArray files) {
-        Map<Path, String> hashes = new HashMap<>();
+        Map<Path, Long> hashes = new HashMap<>();
         for (Object file : files) {
             JSONObject fileObject = ((JSONObject) file);
-            hashes.put(Paths.get(fileObject.getString("name")), fileObject.getString("md5"));
+            hashes.put(Paths.get(fileObject.getString("name")), fileObject.getLong("crc"));
         }
 
         return fromMap(hashes);
     }
 
+    public static DiffTree fromZipFile(ZipFile zipFile) {
+        Map<Path, Long> hashes = new HashMap<>();
+        zipFile.stream().filter(entry -> !entry.isDirectory()).forEach(entry -> {
+            if (!entry.getName().endsWith(".DS_Store") && !entry.getName().endsWith("__MACOSX")) {
+                hashes.put(Paths.get(entry.getName()), entry.getCrc());
+            }
+        });
+
+        return fromMap(hashes);
+    }
+
     public static DiffTree fromFileSystem(Path baseDir) throws IOException {
-        Map<Path, String> hashes = new HashMap<>();
-        java.nio.file.Files.walk(baseDir).forEach(path -> {
-            if (java.nio.file.Files.isRegularFile(path)) {
+        Map<Path, Long> hashes = new HashMap<>();
+        Files.walk(baseDir).forEach(path -> {
+            if (Files.isRegularFile(path)) {
                 try {
-                    String hash =
-                            ByteStreams.hash(Files.newInputStreamSupplier(path.toFile()), Hashing.md5()).toString();
+                    long hash = ByteStreams.hash(com.google.common.io.Files.newInputStreamSupplier(path.toFile()),
+                                                 Hashing.crc32()).padToLong();
                     hashes.put(baseDir.relativize(path), hash);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
@@ -109,7 +136,7 @@ public class DiffTree {
         return fromMap(hashes);
     }
 
-    private static DiffTree fromMap(Map<Path, String> hashes) {
+    private static DiffTree fromMap(Map<Path, Long> hashes) {
         DiffTreeNode root = new DiffTreeNode(null, Paths.get(""));
         hashes.keySet().stream().map(Path::normalize).forEachOrdered(path -> {
             DiffTreeNode current = root;
@@ -130,8 +157,17 @@ public class DiffTree {
         return tree;
     }
 
+    public boolean hasChanges() {
+        final AtomicBoolean result = new AtomicBoolean();
+        iterate(file -> {
+            result.set(true);
+            return false;
+        }, file -> file.isFile() && file.changeMode != ChangeMode.SAME);
+        return result.get();
+    }
+
     public static class DiffTreeNode {
-        private String hash;
+        private long hash;
         private Path path;
         private ChangeMode changeMode = ChangeMode.SAME;
         private DiffTreeNode parent;
@@ -160,11 +196,11 @@ public class DiffTree {
             return changeMode;
         }
 
-        public String getHash() {
+        public long getHash() {
             return hash;
         }
 
-        public void setHash(String hash) {
+        public void setHash(long hash) {
             this.hash = hash;
         }
 
@@ -175,7 +211,7 @@ public class DiffTree {
                     builder.append(child.getHash());
                 }
 
-                hash = Hashing.md5().hashString(builder.toString(), Charsets.UTF_8).toString();
+                hash = Hashing.crc32().hashString(builder.toString(), Charsets.UTF_8).padToLong();
             }
         }
 
@@ -216,10 +252,17 @@ public class DiffTree {
             return !isFile();
         }
 
-        public void iterate(Consumer<? super DiffTreeNode> visitor, Predicate<? super DiffTreeNode> filter) {
-            getChildren().forEach(file -> file.iterate(visitor, filter));
+        public boolean iterate(Function<? super DiffTreeNode, Boolean> visitor,
+                               Predicate<? super DiffTreeNode> filter) {
+            for (DiffTreeNode file : getChildren()) {
+                if (!file.iterate(visitor, filter)) {
+                    return false;
+                }
+            }
             if (filter.test(this)) {
-                visitor.accept(this);
+                return visitor.apply(this);
+            } else {
+                return true;
             }
         }
     }

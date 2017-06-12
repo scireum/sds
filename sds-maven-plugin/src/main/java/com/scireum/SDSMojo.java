@@ -29,9 +29,8 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
+import java.util.zip.ZipFile;
 
 /**
  * Deploys the given file to an SDS-Server
@@ -118,6 +117,7 @@ public class SDSMojo extends AbstractMojo {
                 getLog().info("Skipping (sds.skip is true).");
                 return;
             }
+
             targetPath = target.toPath().resolve("classes");
 
             String artifact = determineArtifact();
@@ -131,24 +131,47 @@ public class SDSMojo extends AbstractMojo {
             checkKey();
 
             DiffTree currentFileList = requestFileList(artifact);
-            transactionToken = requestNewVersion(artifact);
-            try {
-                DiffTree localFileList = createLocalFileList();
+            try (ZipFile artifactZip = new ZipFile(determineArtifactFile())) {
+                DiffTree localFileList = createLocalFileList(artifactZip);
                 currentFileList.calculateDiff(localFileList);
 
-                currentFileList.iterate(changedFile -> {
-                    uploadFile(artifact, changedFile);
-                }, changedFile -> changedFile.isFile() && changedFile.getChangeMode() != ChangeMode.SAME);
+                if (!currentFileList.hasChanges()) {
+                    getLog().info("No changes to upload. Skipping...");
+                    return;
+                }
 
-                requestFinalize(artifact);
-            } catch (Exception e) {
-                requestFinalizeError(artifact);
-                throw e;
+                transactionToken = requestNewVersion(artifact);
+                try {
+                    if (currentFileList.iterate(changedFile -> {
+                        try {
+                            uploadFile(artifact, changedFile, artifactZip);
+                            return true;
+                        } catch (IOException e) {
+                            getLog().error(e);
+                            return false;
+                        }
+                    }, changedFile -> {
+                        if (changedFile.getChangeMode() == ChangeMode.SAME) {
+                            return false;
+                        }
+                        // if this node is to be deleted and it's parent node, too, then skip this node to minify the number of HTTP requests
+                        if (changedFile.getChangeMode() == ChangeMode.DELETED) {
+                            return changedFile.getParent() == null
+                                   || changedFile.getParent().getChangeMode() != ChangeMode.DELETED;
+                        }
+                        return changedFile.isFile();
+                    })) {
+                        requestFinalize(artifact);
+                    } else {
+                        throw new MojoExecutionException("Errors occurred during upload!");
+                    }
+                } catch (Exception e) {
+                    requestFinalizeError(artifact);
+                    throw e;
+                }
             }
         } catch (MojoExecutionException e) {
             throw e;
-        } catch (RuntimeException e) {
-            throw new MojoExecutionException("Error while uploading artifact: " + e.getMessage(), e.getCause());
         } catch (Exception e) {
             throw new MojoExecutionException("Error while uploading artifact: " + e.getMessage(), e);
         }
@@ -164,6 +187,18 @@ public class SDSMojo extends AbstractMojo {
                 return releaseArtifact;
             }
         }
+    }
+
+    private File determineArtifactFile() throws MojoExecutionException {
+        if (isEmpty(file)) {
+            file = artifactId + "-" + version + "-zip.zip";
+        }
+        File artifactFile = new File(target, file);
+        if (!artifactFile.exists()) {
+            throw new MojoExecutionException("File " + artifactFile.getAbsolutePath() + " does not exist!");
+        }
+        getLog().info("Analyzing artifact: " + artifactFile.getAbsolutePath());
+        return artifactFile;
     }
 
     private void checkKey() throws MojoExecutionException {
@@ -198,45 +233,52 @@ public class SDSMojo extends AbstractMojo {
         return DiffTree.fromFileSystem(targetPath);
     }
 
+    private DiffTree createLocalFileList(ZipFile zipFile) {
+        return DiffTree.fromZipFile(zipFile);
+    }
+
     /**
      * @param artifact
      * @return the auth token for the transaction
      * @throws IOException
      */
     private String requestNewVersion(String artifact) throws IOException {
-        JSONObject result = doRequest(computeURL(artifact, "/_new-version", "&version=" + urlEncode(version)), "GET");
+        JSONObject result =
+                doJSONRequest(computeURL(artifact, "/_new-version", "&version=" + urlEncode(version)), "GET");
 
         return result.getString("token");
     }
 
     private DiffTree requestFileList(String artifact) throws IOException {
-        JSONObject result = doRequest(computeURL(artifact, "/_index", "&token=" + transactionToken), "GET");
+        JSONObject result = doJSONRequest(computeURL(artifact, "/_index", "&token=" + transactionToken), "GET");
         JSONArray files = result.getJSONArray("files");
 
         return DiffTree.fromJson(files);
     }
 
-    private void uploadFile(String artifact, DiffTree.DiffTreeNode changedFile) {
-        try {
-            switch (changedFile.getChangeMode()) {
-                case NEW:
-                    uploadNewFile(artifact, changedFile);
-                    break;
-                case DELETED:
-                    uploadDeletedFile(artifact, changedFile);
-                    break;
-                case CHANGED:
-                    uploadChangedFile(artifact, changedFile);
-                    break;
-                default:
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+    private void uploadFile(String artifact, DiffTree.DiffTreeNode changedFile, ZipFile dataSource) throws IOException {
+        switch (changedFile.getChangeMode()) {
+            case NEW:
+                uploadNewFile(artifact,
+                              changedFile,
+                              dataSource.getInputStream(dataSource.getEntry(changedFile.getAbsolutePath().toString())));
+                break;
+            case DELETED:
+                uploadDeletedFile(artifact, changedFile);
+                break;
+            case CHANGED:
+                uploadChangedFile(artifact,
+                                  changedFile,
+                                  dataSource.getInputStream(dataSource.getEntry(changedFile.getAbsolutePath()
+                                                                                           .toString())));
+                break;
+            default:
         }
     }
 
-    private void uploadChangedFile(String artifact, DiffTree.DiffTreeNode changedFile) throws IOException {
-        getLog().info(String.format("Updating %s", changedFile.getAbsolutePath()));
+    private void uploadChangedFile(String artifact, DiffTree.DiffTreeNode changedFile, InputStream data)
+            throws IOException {
+        getLog().info(String.format("Updating file: %s", changedFile.getAbsolutePath()));
 
         doUpload(computeURL(artifact,
                             "",
@@ -245,38 +287,39 @@ public class SDSMojo extends AbstractMojo {
                             + "&contentHash="
                             + changedFile.getHash()
                             + "&path="
-                            + urlEncode(changedFile.getAbsolutePath().toString())),
-                 "PUT",
-                 targetPath.resolve(changedFile.getAbsolutePath()));
+                            + urlEncode(changedFile.getAbsolutePath().toString())), "PUT", data);
     }
 
     private void uploadDeletedFile(String artifact, DiffTree.DiffTreeNode changedFile) throws IOException {
-        getLog().info(String.format("Deleting %s", changedFile.getAbsolutePath()));
+        getLog().info(String.format("Deleting file: %s", changedFile.getAbsolutePath()));
 
-        doRequest(computeURL(artifact,
-                             "",
-                             "&token=" + transactionToken + "&path=" + urlEncode(changedFile.getAbsolutePath()
-                                                                                            .toString())), "DELETE");
+        doDelete(computeURL(artifact,
+                            "",
+                            "&token=" + transactionToken + "&path=" + urlEncode(changedFile.getAbsolutePath()
+                                                                                           .toString())));
     }
 
-    private void uploadNewFile(String artifact, DiffTree.DiffTreeNode changedFile) throws IOException {
-        getLog().info(String.format("Creating %s", changedFile.getAbsolutePath()));
+    private void uploadNewFile(String artifact, DiffTree.DiffTreeNode changedFile, InputStream data)
+            throws IOException {
+        getLog().info(String.format("Creating file: %s", changedFile.getAbsolutePath()));
 
         doUpload(computeURL(artifact,
                             "",
-                            "&token=" + transactionToken + "&path=" + urlEncode(changedFile.getAbsolutePath()
-                                                                                           .toString())),
-                 "PUT",
-                 targetPath.resolve(changedFile.getAbsolutePath()));
+                            "&token="
+                            + transactionToken
+                            + "&contentHash="
+                            + changedFile.getHash()
+                            + "&path="
+                            + urlEncode(changedFile.getAbsolutePath().toString())), "PUT", data);
     }
 
     private void requestFinalize(String artifact) throws IOException {
-        doRequest(computeURL(artifact, "/_finalize", "&token=" + transactionToken), "GET");
+        doJSONRequest(computeURL(artifact, "/_finalize", "&token=" + transactionToken), "GET");
     }
 
     private void requestFinalizeError(String artifact) {
         try {
-            doRequest(computeURL(artifact, "/_finalize-error", "&token=" + transactionToken), "GET");
+            doJSONRequest(computeURL(artifact, "/_finalize-error", "&token=" + transactionToken), "GET");
         } catch (Exception e) {
             getLog().warn(e);
         }
@@ -311,12 +354,8 @@ public class SDSMojo extends AbstractMojo {
         }
     }
 
-    private JSONObject doRequest(URL url, String method) throws IOException {
-        getLog().info(method + " " + url.toString());
-
-        HttpURLConnection c = (HttpURLConnection) url.openConnection();
-        c.setRequestMethod(method);
-        c.setDoOutput(false);
+    private JSONObject doJSONRequest(URL url, String method) throws IOException {
+        HttpURLConnection c = doRequest(url, method);
         c.connect();
         try (InputStream is = c.getInputStream()) {
             String jsonText = CharStreams.toString(new InputStreamReader(is));
@@ -333,7 +372,25 @@ public class SDSMojo extends AbstractMojo {
         }
     }
 
-    private void doUpload(URL url, String method, Path file) throws IOException {
+    private void doDelete(URL url) throws IOException {
+        HttpURLConnection c = doRequest(url, "DELETE");
+
+        if (c.getResponseCode() != 200) {
+            throw new IOException(c.getResponseMessage() + " (" + c.getResponseCode() + ")");
+        }
+    }
+
+    private HttpURLConnection doRequest(URL url, String method) throws IOException {
+        getLog().info(method + " " + url.toString());
+
+        HttpURLConnection c = (HttpURLConnection) url.openConnection();
+        c.setRequestMethod(method);
+        c.setDoOutput(false);
+        c.connect();
+        return c;
+    }
+
+    private void doUpload(URL url, String method, InputStream file) throws IOException {
         getLog().info(method + " " + url.toString());
 
         HttpURLConnection c = (HttpURLConnection) url.openConnection();
@@ -344,22 +401,17 @@ public class SDSMojo extends AbstractMojo {
         upload(file, c.getOutputStream());
 
         if (c.getResponseCode() != 200) {
-            throw new IOException("Cannot upload artifact: "
-                                  + c.getResponseMessage()
-                                  + " ("
-                                  + c.getResponseCode()
-                                  + ")");
+            throw new IOException(c.getResponseMessage() + " (" + c.getResponseCode() + ")");
         }
-        getLog().info("Artifact successfully uploaded to: " + server);
     }
 
-    private void upload(Path file, OutputStream outputStream) throws IOException {
+    private void upload(InputStream file, OutputStream outputStream) throws IOException {
         byte[] buffer = new byte[8192];
-        long totalBytes = Files.size(file);
+        long totalBytes = file.available();
         long bytesSoFar = 0;
         long lastBytesReported = 0;
         long lastTimeReported = System.currentTimeMillis();
-        try (InputStream input = java.nio.file.Files.newInputStream(file, StandardOpenOption.READ)) {
+        try (InputStream input = file) {
             int read = input.read(buffer);
             while (read > 0) {
                 outputStream.write(buffer, 0, read);
