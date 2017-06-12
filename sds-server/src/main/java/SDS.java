@@ -11,6 +11,7 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,7 +26,6 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.time.LocalDate;
@@ -41,6 +41,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.zip.CRC32;
 
 /**
  * Synchronizes a local directory against a SDS server.
@@ -191,19 +192,21 @@ public class SDS {
         }
     }
 
-    private String hashMD5(Path path) {
+    private long crc(File file) {
         try {
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            byte[] digest = md.digest(Files.readAllBytes(path));
-            StringBuilder sb = new StringBuilder(digest.length * 2);
-            for (byte b : digest) {
-                sb.append(String.format("%02x", b & 0xff));
+            CRC32 crc = new CRC32();
+            try (FileInputStream in = new FileInputStream(file)) {
+                byte[] buffer = new byte[4096];
+                int read = in.read(buffer);
+                while (read > 0) {
+                    crc.update(buffer, 0, read);
+                    read = in.read(buffer);
+                }
+                return crc.getValue();
             }
-            return sb.toString();
-        } catch (Throwable e) {
-            verbose(e);
-            fail("Cannot compute MD5 hashes...: %s", e.getMessage());
-            return null;
+        } catch (IOException ignored) {
+            fail("Failed to compute the CRC of %s", file.getAbsolutePath());
+            return 0;
         }
     }
 
@@ -376,8 +379,8 @@ public class SDS {
                                                 + get(expectedFile, "name")
                                                 + "' does not match!");
             }
-            if (hashMD5(buffer.toPath()) == null || !hashMD5(buffer.toPath()).equals(get(expectedFile, "md5"))) {
-                throw new IllegalStateException("MD5 of downloaded file '"
+            if (crc(buffer) != (Long) get(expectedFile, "crc")) {
+                throw new IllegalStateException("CRC of downloaded file '"
                                                 + get(expectedFile, "name")
                                                 + "' does not match!");
             }
@@ -450,9 +453,7 @@ public class SDS {
             int next = readFirstNonWhiteSpace(input);
             if (next != ',') {
                 if (next != ']') {
-                    throw new IllegalArgumentException(JSON_CHAR_ERROR
-                                                       + (char) next
-                                                       + ". Expected a ']'!");
+                    throw new IllegalArgumentException(JSON_CHAR_ERROR + (char) next + ". Expected a ']'!");
                 }
                 break;
             }
@@ -503,9 +504,7 @@ public class SDS {
             next = readFirstNonWhiteSpace(input);
             if (next != ',') {
                 if (next != '}') {
-                    throw new IllegalArgumentException(JSON_CHAR_ERROR
-                                                       + (char) next
-                                                       + ". Expected a '}'!");
+                    throw new IllegalArgumentException(JSON_CHAR_ERROR + (char) next + ". Expected a '}'!");
                 }
                 break;
             }
@@ -640,7 +639,7 @@ public class SDS {
                         filesDownloaded.incrementAndGet();
                         downloadAndVerify(baseURI, file, expectedFile);
                     }
-                } else if (hashMD5(file.toPath()) == null || !hashMD5(file.toPath()).equals(get(expectedFile, "md5"))) {
+                } else if (crc(file) != (Long) get(expectedFile, "crc")) {
                     if (syncHandler.apply(" * " + name)) {
                         filesChanged.incrementAndGet();
                         filesDownloaded.incrementAndGet();
