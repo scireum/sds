@@ -12,7 +12,6 @@ import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 import com.google.common.hash.Hashing;
 import io.netty.handler.codec.http.HttpResponseStatus;
-import org.apache.commons.io.FileUtils;
 import sirius.kernel.Sirius;
 import sirius.kernel.commons.Strings;
 import sirius.kernel.commons.Tuple;
@@ -28,6 +27,7 @@ import sirius.web.http.WebContext;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -97,8 +97,8 @@ public class Repository {
             }
             Path uploadDir = baseDir.resolve(UPLOAD_DIR);
 
-            FileUtils.deleteDirectory(uploadDir.toFile());
-            FileUtils.copyDirectory(currentDir.toFile(), uploadDir.toFile());
+            deletePath(uploadDir);
+            copyDirectory(currentDir, uploadDir);
         } catch (HandledException e) {
             throw e;
         } catch (Exception e) {
@@ -126,7 +126,7 @@ public class Repository {
         try {
             assertArtifactLock(artifact, token);
             Path filePath = getArtifactBaseDir(artifact).resolve(UPLOAD_DIR).resolve(file);
-            FileUtils.forceDelete(filePath.toFile());
+            deletePath(filePath);
         } finally {
             lock.unlock();
         }
@@ -177,7 +177,7 @@ public class Repository {
 
             Path uploadDir = baseDir.resolve(UPLOAD_DIR);
 
-            FileUtils.deleteDirectory(backupDir.toFile());
+            deletePath(backupDir);
             Files.move(currentDir, backupDir);
             try {
                 Files.move(uploadDir, currentDir);
@@ -209,8 +209,8 @@ public class Repository {
 
             Path uploadDir = baseDir.resolve(UPLOAD_DIR);
 
-            FileUtils.deleteDirectory(uploadDir.toFile());
-            FileUtils.deleteDirectory(backupDir.toFile());
+            deletePath(uploadDir);
+            deletePath(backupDir);
             releaseArtifactLock(artifact, token);
         } finally {
             lock.unlock();
@@ -442,5 +442,33 @@ public class Repository {
     private void releaseArtifactLock(String artifact, String token) {
         assertArtifactLock(artifact, token);
         artifactsLocks.remove(artifact);
+    }
+
+    private void copyDirectory(Path src, Path dest) throws IOException {
+        Files.walkFileTree(src, new SimpleFileVisitor<Path>() {
+
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                Path target = dest.resolve(src.relativize(dir));
+                try {
+                    Files.copy(dir, target);
+                } catch (FileAlreadyExistsException e) {
+                    if (!target.toFile().isDirectory()) {
+                        throw e;
+                    }
+                }
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                Files.copy(file, dest.resolve(src.relativize(file)));
+                return FileVisitResult.CONTINUE;
+            }
+        });
+    }
+
+    private void deletePath(Path path) throws IOException {
+        sirius.kernel.commons.Files.delete(path);
     }
 }
