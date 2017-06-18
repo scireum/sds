@@ -128,6 +128,17 @@ public class ArtifactController implements Controller {
         }
     }
 
+    /**
+     * Provides list of files for the requested artifact for legacy clients. Access is checked for given user.
+     *
+     * @param ctx      the current request
+     * @param artifact to list files of
+     */
+    @Routed("/artifacts/:1/latest/_index")
+    public void legacyIndex(WebContext ctx, String artifact) {
+        index(ctx, artifact);
+    }
+
     private void writeFileInfo(StructuredOutput out, String artifact) {
         try {
             repository.getFileIndex(artifact, indexFile -> {

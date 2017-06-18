@@ -36,12 +36,15 @@ public class ArtifactDispatcher implements WebDispatcher {
 
     private static final Pattern UPLOAD_URI = Pattern.compile("/artifacts/([a-zA-Z0-9_\\-]+)");
     private static final Pattern DOWNLOAD_URI = Pattern.compile("/artifacts/([a-zA-Z0-9_\\-]+)/(.+)");
+    private static final Pattern OLD_DOWNLOAD_LATEST_URI =
+            Pattern.compile("/artifacts/([a-zA-Z0-9_\\-]+)/(latest)/(.+)");
 
     /**
      * @deprecated (remove with next version when all clients has been upgraded)
      */
     @Deprecated
-    private static final Pattern OLD_DOWNLOAD_URI = Pattern.compile("/artifacts/([a-zA-Z0-9_\\-]+)/(latest|\\d+)(/.+)");
+    private static final Pattern OLD_DOWNLOAD_VERSION_URI =
+            Pattern.compile("/artifacts/([a-zA-Z0-9_\\-]+)/(\\d+)/(.+)");
 
     @Part
     private Tasks tasks;
@@ -72,15 +75,7 @@ public class ArtifactDispatcher implements WebDispatcher {
                 handleFileDelete(ctx);
                 return true;
             } else {
-                if (needsUpgradeInfo(ctx)) {
-                    return true;
-                }
-
-                Matcher m = DOWNLOAD_URI.matcher(ctx.getRequestedURI());
-                if (m.matches() && !wellKnownRoute(m.group(2))) {
-                    handleFileDownload(ctx, m);
-                    return true;
-                }
+                return dispatchDownloads(ctx);
             }
         } catch (IOException t) {
             ctx.respondWith()
@@ -90,20 +85,40 @@ public class ArtifactDispatcher implements WebDispatcher {
             ctx.respondWith().error(HttpResponseStatus.INTERNAL_SERVER_ERROR, Exceptions.handle(t));
             return true;
         }
+    }
 
+    private boolean dispatchDownloads(final WebContext ctx) {
+        if (versionsNotSupportedCheck(ctx)) {
+            return true;
+        }
+        Matcher oldM = OLD_DOWNLOAD_LATEST_URI.matcher(ctx.getRequestedURI());
+        if (oldM.matches()) {
+            if ("_index".equals(oldM.group(3))) {
+                return false;
+            }
+            handleFileDownload(ctx, oldM.group(1), oldM.group(3));
+            return true;
+        }
+
+        Matcher m = DOWNLOAD_URI.matcher(ctx.getRequestedURI());
+        if (m.matches() && !wellKnownRoute(m.group(2))) {
+            handleFileDownload(ctx, m.group(1), m.group(2));
+            return true;
+        }
         return false;
     }
 
     /**
-     * Dispatcher to inform old sds clients that they need an update.
+     * Dispatcher to inform old sds clients that versions are no longer supported.
      *
      * @param ctx the current request
-     * @return <tt>true</tt> if the requesting sds client needs an update, <tt>false</tt> otherwiese
+     * @return <tt>true</tt> if the requesting sds client requested a version which is no longer supported,
+     * <tt>false</tt> otherwiese
      * @deprecated (remove with next version when all clients has been upgraded)
      */
     @Deprecated
-    private boolean needsUpgradeInfo(WebContext ctx) {
-        Matcher m = OLD_DOWNLOAD_URI.matcher(ctx.getRequestedURI());
+    private boolean versionsNotSupportedCheck(final WebContext ctx) {
+        Matcher m = OLD_DOWNLOAD_VERSION_URI.matcher(ctx.getRequestedURI());
         if (!m.matches()) {
             return false;
         }
@@ -111,18 +126,15 @@ public class ArtifactDispatcher implements WebDispatcher {
         out.beginResult("error");
         try {
             out.property("error", true);
-            out.property("message",
-                         "Your SDS client version is out of date and no longer supported. Please upgrade your SDS client.");
+            out.property("message", "Versions are no longer supported by SDS server.");
         } finally {
             out.endResult();
         }
         return true;
     }
 
-    private void handleFileDownload(WebContext ctx, Matcher m) {
-        final String artifact = m.group(1);
-        final String path = m.group(2);
-        if (repository.canAccess(m.group(1),
+    private void handleFileDownload(final WebContext ctx, final String artifact, final String path) {
+        if (repository.canAccess(artifact,
                                  ctx.get("user").asString(),
                                  ctx.get("hash").asString(),
                                  ctx.get(ArtifactController.PARAM_TIMESTAMP).asInt(0))) {
