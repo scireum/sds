@@ -168,10 +168,10 @@ public class ArtifactController implements Controller {
         final StructuredOutput out = ctx.respondWith().json();
         out.beginResult();
         try {
-            if (!repository.canAccess(artifact,
-                                      ctx.get("user").asString(),
-                                      ctx.get("hash").asString(),
-                                      ctx.get(PARAM_TIMESTAMP).asInt(0))) {
+            if (!repository.canWriteAccess(artifact,
+                                           ctx.get("user").asString(),
+                                           ctx.get("hash").asString(),
+                                           ctx.get(PARAM_TIMESTAMP).asInt(0))) {
                 out.property(PARAM_ERROR, true);
                 out.property(PARAM_MESSAGE, Strings.apply(ACCESS_ERROR_MESSAGE, artifact, ctx.get("user").asString()));
                 return;
@@ -197,10 +197,10 @@ public class ArtifactController implements Controller {
         final StructuredOutput out = ctx.respondWith().json();
         out.beginResult();
         try {
-            if (!repository.canAccess(artifact,
-                                      ctx.get("user").asString(),
-                                      ctx.get("hash").asString(),
-                                      ctx.get(PARAM_TIMESTAMP).asInt(0))) {
+            if (!repository.canWriteAccess(artifact,
+                                           ctx.get("user").asString(),
+                                           ctx.get("hash").asString(),
+                                           ctx.get(PARAM_TIMESTAMP).asInt(0))) {
                 out.property(PARAM_ERROR, true);
                 out.property(PARAM_MESSAGE, Strings.apply(ACCESS_ERROR_MESSAGE, artifact, ctx.get("user").asString()));
                 return;
@@ -227,10 +227,10 @@ public class ArtifactController implements Controller {
         final StructuredOutput out = ctx.respondWith().json();
         out.beginResult();
         try {
-            if (!repository.canAccess(artifact,
-                                      ctx.get("user").asString(),
-                                      ctx.get("hash").asString(),
-                                      ctx.get(PARAM_TIMESTAMP).asInt(0))) {
+            if (!repository.canWriteAccess(artifact,
+                                           ctx.get("user").asString(),
+                                           ctx.get("hash").asString(),
+                                           ctx.get(PARAM_TIMESTAMP).asInt(0))) {
                 out.property(PARAM_ERROR, true);
                 out.property(PARAM_MESSAGE, Strings.apply(ACCESS_ERROR_MESSAGE, artifact, ctx.get("user").asString()));
                 return;
