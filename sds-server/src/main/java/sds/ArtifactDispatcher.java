@@ -160,6 +160,9 @@ public class ArtifactDispatcher implements WebDispatcher {
             ctx.respondWith().error(HttpResponseStatus.BAD_REQUEST, "Expected an URI like /artifacts/package-name");
             return;
         }
+        if (ctx.get("path").isEmptyString()) {
+            ctx.respondWith().error(HttpResponseStatus.BAD_REQUEST, "Path parameter expected");
+        }
         File file = ctx.getContentAsFile();
         if (file == null) {
             ctx.respondWith().error(HttpResponseStatus.BAD_REQUEST, "File-Upload expected!");
@@ -179,7 +182,7 @@ public class ArtifactDispatcher implements WebDispatcher {
                                       ctx.get(ArtifactController.PARAM_TIMESTAMP).asInt(0))) {
             repository.handleUpload(m.group(1),
                                     ctx.get("token").asString(),
-                                    Paths.get(ctx.getParameter("path")),
+                                    ctx.getParameter("path"),
                                     ctx.getContent());
             ctx.respondWith().status(HttpResponseStatus.OK);
         } else {
@@ -193,11 +196,14 @@ public class ArtifactDispatcher implements WebDispatcher {
             ctx.respondWith().error(HttpResponseStatus.BAD_REQUEST, "Expected an URI like /artifacts/package-name");
             return;
         }
+        if (ctx.get("path").isEmptyString()) {
+            ctx.respondWith().error(HttpResponseStatus.BAD_REQUEST, "Path parameter expected");
+        }
         if (repository.canWriteAccess(m.group(1),
                                       ctx.get("user").asString(),
                                       ctx.get("hash").asString(),
                                       ctx.get(ArtifactController.PARAM_TIMESTAMP).asInt(0))) {
-            repository.handleDelete(m.group(1), ctx.get("token").asString(), Paths.get(ctx.getParameter("path")));
+            repository.handleDelete(m.group(1), ctx.get("token").asString(), ctx.getParameter("path"));
             ctx.respondWith().status(HttpResponseStatus.OK);
         } else {
             ctx.respondWith().status(HttpResponseStatus.UNAUTHORIZED);

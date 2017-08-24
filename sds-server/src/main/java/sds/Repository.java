@@ -27,6 +27,7 @@ import sirius.web.http.WebContext;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -118,14 +119,14 @@ public class Repository {
      *
      * @param artifact the artifact to delete a file from
      * @param token    token for identifying lock for artifact
-     * @param file     the file to delete
+     * @param file     the path to file to delete
      * @throws IOException if deletion of file went wrong
      */
-    public void handleDelete(String artifact, String token, Path file) throws IOException {
+    public void handleDelete(String artifact, String token, String file) throws IOException {
         lock.lock();
         try {
             assertArtifactLock(artifact, token);
-            Path filePath = getArtifactBaseDir(artifact).resolve(UPLOAD_DIR).resolve(file);
+            Path filePath = getSecuredFileUploadPath(artifact, file);
             deletePath(filePath);
         } finally {
             lock.unlock();
@@ -140,15 +141,15 @@ public class Repository {
      *
      * @param artifact    the artifact to add a file to
      * @param token       the token for identifying lock for artifact
-     * @param file        Path object containing the new file's path in artifact
+     * @param file        the new file's path in artifact
      * @param fileContent the content of the file
      * @throws IOException if writing the file fails
      */
-    public void handleUpload(String artifact, String token, Path file, InputStream fileContent) throws IOException {
+    public void handleUpload(String artifact, String token, String file, InputStream fileContent) throws IOException {
         lock.lock();
         try {
             assertArtifactLock(artifact, token);
-            Path filePath = getArtifactBaseDir(artifact).resolve(UPLOAD_DIR).resolve(file);
+            Path filePath = getSecuredFileUploadPath(artifact, file);
             Files.createDirectories(filePath.getParent());
             Files.copy(fileContent, filePath, StandardCopyOption.REPLACE_EXISTING);
         } finally {
@@ -470,5 +471,13 @@ public class Repository {
 
     private void deletePath(Path path) throws IOException {
         sirius.kernel.commons.Files.delete(path);
+    }
+
+    private Path getSecuredFileUploadPath(String artifact, String file) throws IOException {
+        Path filePath = getArtifactBaseDir(artifact).resolve(UPLOAD_DIR).resolve(file);
+        if (!filePath.normalize().startsWith(getArtifactBaseDir(artifact).resolve(UPLOAD_DIR).normalize())) {
+            throw new AccessDeniedException("Access denied");
+        }
+        return filePath;
     }
 }

@@ -36,6 +36,18 @@
         </dependency>
         <dependency>
             <groupId>com.scireum</groupId>
+            <artifactId>sirius-web</artifactId>
+            <version>8.9</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.scireum</groupId>
+            <artifactId>sirius-kernel</artifactId>
+            <version>6.8.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.scireum</groupId>
             <artifactId>sirius-kernel</artifactId>
             <version>6.8.1</version>
             <type>test-jar</type>
