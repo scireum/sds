@@ -473,6 +473,7 @@ public class Repository {
         sirius.kernel.commons.Files.delete(path);
     }
 
+    // TODO the normalize function does not append a trailing slash. this check does not fully work
     private Path getSecuredFileUploadPath(String artifact, String file) throws IOException {
         Path filePath = getArtifactBaseDir(artifact).resolve(UPLOAD_DIR).resolve(file);
         if (!filePath.normalize().startsWith(getArtifactBaseDir(artifact).resolve(UPLOAD_DIR).normalize())) {
