@@ -17,6 +17,7 @@ import sirius.kernel.commons.PriorityCollector;
 import sirius.kernel.di.std.Part;
 import sirius.kernel.di.std.Register;
 import sirius.kernel.health.Exceptions;
+import sirius.kernel.health.HandledException;
 import sirius.kernel.xml.StructuredOutput;
 import sirius.web.http.WebContext;
 import sirius.web.http.WebDispatcher;
@@ -24,7 +25,6 @@ import sirius.web.http.WebDispatcher;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -80,6 +80,9 @@ public class ArtifactDispatcher implements WebDispatcher {
         } catch (IOException t) {
             ctx.respondWith()
                .error(HttpResponseStatus.INTERNAL_SERVER_ERROR, Exceptions.createHandled().error(t).handle());
+            return true;
+        } catch (HandledException e) {
+            ctx.respondWith().error(HttpResponseStatus.INTERNAL_SERVER_ERROR, e.getMessage());
             return true;
         } catch (Exception t) {
             ctx.respondWith().error(HttpResponseStatus.INTERNAL_SERVER_ERROR, Exceptions.handle(t));
@@ -172,7 +175,7 @@ public class ArtifactDispatcher implements WebDispatcher {
             long computedContentHash = computeContentHash(ctx);
             long givenContentHash = ctx.get("contentHash").asLong(0);
             if (computedContentHash != givenContentHash) {
-                ctx.respondWith().error(HttpResponseStatus.BAD_REQUEST, "MD5 checksum mismatch");
+                ctx.respondWith().error(HttpResponseStatus.BAD_REQUEST, "CRC32 checksum mismatch");
                 return;
             }
         }
