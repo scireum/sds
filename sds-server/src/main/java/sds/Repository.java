@@ -37,7 +37,9 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -59,7 +61,7 @@ public class Repository {
     private static final String PARAM_ARTIFACTS = "artifacts";
     private static final String ERROR_PART_REJECTED_BY_USER = "Rejected access by user: ";
 
-    private ReentrantLock lock = new ReentrantLock();
+    private Map<String, ReentrantLock> locks = new HashMap<>();
 
     private static ConcurrentHashMap<String, Tuple<String, LocalDateTime>> artifactsLocks = new ConcurrentHashMap<>();
 
@@ -71,6 +73,10 @@ public class Repository {
     @ConfigValue("sds.artifactsLockTime")
     private long artifactsLockTime;
 
+    private ReentrantLock getLockByArtifact(String artifact) {
+        return locks.computeIfAbsent(artifact, key -> new ReentrantLock(true));
+    }
+
     /**
      * Startes creation of new version of artifact. This MUST be called before files are uploaded for a new version.
      * Otherwise the uploads will fail. This method will also create a custom lock for the artifact so that no
@@ -81,7 +87,7 @@ public class Repository {
      * @throws IOException if file operations went wrong
      */
     public String handleNewArtifactVersion(String artifact) throws IOException {
-        lock.lock();
+        getLockByArtifact(artifact).lock();
         String artifactToken = null;
         try {
             artifactToken = lockArtifact(artifact).orElseThrow(() -> Exceptions.createHandled()
@@ -100,15 +106,15 @@ public class Repository {
 
             deletePath(uploadDir);
             copyDirectory(currentDir, uploadDir);
+            return artifactToken;
         } catch (HandledException e) {
             throw e;
         } catch (Exception e) {
             releaseArtifactLock(artifact, artifactToken);
             throw e;
         } finally {
-            lock.unlock();
+            getLockByArtifact(artifact).unlock();
         }
-        return artifactToken;
     }
 
     /**
@@ -123,13 +129,13 @@ public class Repository {
      * @throws IOException if deletion of file went wrong
      */
     public void handleDelete(String artifact, String token, String file) throws IOException {
-        lock.lock();
+        getLockByArtifact(artifact).lock();
         try {
             assertArtifactLock(artifact, token);
             Path filePath = getSecuredFileUploadPath(artifact, file);
             deletePath(filePath);
         } finally {
-            lock.unlock();
+            getLockByArtifact(artifact).unlock();
         }
     }
 
@@ -146,14 +152,14 @@ public class Repository {
      * @throws IOException if writing the file fails
      */
     public void handleUpload(String artifact, String token, String file, InputStream fileContent) throws IOException {
-        lock.lock();
+        getLockByArtifact(artifact).lock();
         try {
             assertArtifactLock(artifact, token);
             Path filePath = getSecuredFileUploadPath(artifact, file);
             Files.createDirectories(filePath.getParent());
             Files.copy(fileContent, filePath, StandardCopyOption.REPLACE_EXISTING);
         } finally {
-            lock.unlock();
+            getLockByArtifact(artifact).unlock();
         }
     }
 
@@ -167,7 +173,7 @@ public class Repository {
      * @throws IOException if file operations went wrong
      */
     public void handleFinalizeNewVersion(String artifact, String token) throws IOException {
-        lock.lock();
+        getLockByArtifact(artifact).lock();
         try {
             assertArtifactLock(artifact, token);
             Path baseDir = getArtifactBaseDir(artifact);
@@ -188,7 +194,7 @@ public class Repository {
             }
             releaseArtifactLock(artifact, token);
         } finally {
-            lock.unlock();
+            getLockByArtifact(artifact).unlock();
         }
     }
 
@@ -200,7 +206,7 @@ public class Repository {
      * @throws IOException if deleting of backup or upload directory fails
      */
     public void handleFinalizeError(String artifact, String token) throws IOException {
-        lock.lock();
+        getLockByArtifact(artifact).lock();
         try {
             assertArtifactLock(artifact, token);
 
@@ -214,7 +220,7 @@ public class Repository {
             deletePath(backupDir);
             releaseArtifactLock(artifact, token);
         } finally {
-            lock.unlock();
+            getLockByArtifact(artifact).unlock();
         }
     }
 
@@ -473,12 +479,12 @@ public class Repository {
         sirius.kernel.commons.Files.delete(path);
     }
 
-    // TODO the normalize function does not append a trailing slash. this check does not fully work
     private Path getSecuredFileUploadPath(String artifact, String file) throws IOException {
-        Path filePath = getArtifactBaseDir(artifact).resolve(UPLOAD_DIR).resolve(file);
-        if (!filePath.normalize().startsWith(getArtifactBaseDir(artifact).resolve(UPLOAD_DIR).normalize())) {
+        Path basePath = getArtifactBaseDir(artifact).resolve(UPLOAD_DIR).normalize();
+        Path givenFilePath = basePath.resolve(file).normalize();
+        if (!givenFilePath.startsWith(basePath)) {
             throw new AccessDeniedException("Access denied");
         }
-        return filePath;
+        return givenFilePath;
     }
 }
