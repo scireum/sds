@@ -17,10 +17,8 @@ import sirius.web.security.UserContextHelper
 class ArtifactControllerSpec extends BaseSpecification {
 
     def "GET / shows main page"() {
-        given:
-        def request = TestRequest.GET("/")
         when:
-        def response = request.executeAndBlock()
+        def response = TestRequest.GET("/").execute()
         then:
         response.getTemplateName() == "view/main.html.pasta"
         and:
@@ -28,10 +26,8 @@ class ArtifactControllerSpec extends BaseSpecification {
     }
 
     def "GET /sds.class downloads the sds client binary"() {
-        given:
-        def request = TestRequest.GET("/sds.class")
         when:
-        def response = request.executeAndBlock()
+        def response = TestRequest.GET("/sds.class").execute()
         then:
         response.getType() == TestResponse.ResponseType.RESOURCE
         and:
@@ -41,10 +37,8 @@ class ArtifactControllerSpec extends BaseSpecification {
     }
 
     def "GET /artifacts not authenticated returns only public visible artifacts"() {
-        given:
-        def request = TestRequest.GET("/artifacts")
         when:
-        def response = request.executeAndBlock()
+        def response = TestRequest.GET("/artifacts").execute()
         then:
         response.getContentAsJson().get("error") == false
         and:
@@ -55,10 +49,8 @@ class ArtifactControllerSpec extends BaseSpecification {
     }
 
     def "GET /artifacts authenticated returns public visible artifacts and artifacts visible to user"() {
-        given:
-        def request = SDSTestHelper.getClosedRepositoryAuthenticatedRequest("/artifacts")
         when:
-        def response = request.executeAndBlock()
+        def response = SDSTestRequest.GET("/artifacts").asUser("closed").execute()
         then:
         response.getContentAsJson().get("error") == false
         and:
@@ -70,10 +62,8 @@ class ArtifactControllerSpec extends BaseSpecification {
     }
 
     def "GET /artifacts/closed/_index not authenticated returns an error"() {
-        given:
-        def request = TestRequest.GET("/artifacts/closed/_index")
         when:
-        def response = request.executeAndBlock()
+        def response = TestRequest.GET("/artifacts/closed/_index").execute()
         then:
         response.getContentAsJson().get("error") == true
         and:
@@ -83,10 +73,8 @@ class ArtifactControllerSpec extends BaseSpecification {
     }
 
     def "GET /artifacts/closed/_index authenticated returns files of repository"() {
-        given:
-        def request = SDSTestHelper.getClosedRepositoryAuthenticatedRequest("/artifacts/closed/_index")
         when:
-        def response = request.executeAndBlock()
+        def response = SDSTestRequest.GET("/artifacts/closed/_index").asUser("closed").execute()
         then:
         response.getContentAsJson().get("error") == false
         and:
@@ -104,10 +92,8 @@ class ArtifactControllerSpec extends BaseSpecification {
     }
 
     def "GET /artifacts/public/_index shows all files present for the artifact"() {
-        given:
-        def request = TestRequest.GET("/artifacts/public/_index")
         when:
-        def response = request.executeAndBlock()
+        def response = TestRequest.GET("/artifacts/public/_index").execute()
         then:
         response.getContentAsJson().get("error") == false
         and:
@@ -132,10 +118,8 @@ class ArtifactControllerSpec extends BaseSpecification {
     }
 
     def "GET /artifacts/public/latest/_index shows all files present for the artifact (legacy)"() {
-        given:
-        def request = TestRequest.GET("/artifacts/public/latest/_index")
         when:
-        def response = request.executeAndBlock()
+        def response = TestRequest.GET("/artifacts/public/latest/_index").execute()
         then:
         response.getContentAsJson().get("error") == false
         and:

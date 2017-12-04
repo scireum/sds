@@ -12,6 +12,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.runner.RunWith;
 import sirius.kernel.TestHelper;
+import sirius.kernel.health.Exceptions;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -42,26 +43,16 @@ public class TestSuite {
             Files.createDirectory(dataDirectory);
 
             Path testFilesDirectory = Paths.get("src/test/resources/testfiles/basefiles");
-
-            Files.walk(testFilesDirectory)
-                 .filter(path -> path.toFile().isDirectory())
-                 .filter(path -> !path.equals(testFilesDirectory))
-                 .forEach(path -> {
-                     try {
-                         Files.createDirectory(dataDirectory.resolve(testFilesDirectory.relativize(path)));
-                     } catch (IOException e) {
-                         e.printStackTrace();
-                     }
-                 });
             Files.walk(testFilesDirectory).filter(path -> path.toFile().isFile()).forEach(file -> {
                 try {
+                    Files.createDirectories(dataDirectory.resolve(testFilesDirectory.relativize(file.getParent())));
                     Files.copy(file, dataDirectory.resolve(testFilesDirectory.relativize(file)));
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    throw Exceptions.handle(e);
                 }
             });
         } catch (IOException e) {
-            e.printStackTrace();
+            throw Exceptions.handle(e);
         }
     }
 }

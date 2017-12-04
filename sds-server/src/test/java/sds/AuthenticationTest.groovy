@@ -79,30 +79,30 @@ class AuthenticationTest extends BaseSpecification {
     }
 
     def "Authentication to closed artifact succeeds for valid data"() {
-        def authContext = SDSTestHelper.getAuthenticationCredentials("closed")
+        def authContext = SDSTestRequest.getAuthenticationCredentials("closed")
 
         expect:
-        repository.canAccess("closed", authContext.getValue(SDSTestHelper.AUTH_USER).asString(), authContext.getValue(SDSTestHelper.AUTH_HASH).asString(), authContext.getValue(SDSTestHelper.AUTH_TIMESTAMP).asInt(0), false)
+        repository.canAccess("closed", authContext.getValue(SDSTestRequest.AUTH_USER).asString(), authContext.getValue(SDSTestRequest.AUTH_HASH).asString(), authContext.getValue(SDSTestRequest.AUTH_TIMESTAMP).asInt(0), false)
     }
 
     def "Authentication to closed artifact succeeds for user with access to all repositories"() {
-        def authContext = SDSTestHelper.getAuthenticationCredentials("all-access")
+        def authContext = SDSTestRequest.getAuthenticationCredentials("all-access")
 
         expect:
-        repository.canAccess("closed", authContext.getValue(SDSTestHelper.AUTH_USER).asString(), authContext.getValue(SDSTestHelper.AUTH_HASH).asString(), authContext.getValue(SDSTestHelper.AUTH_TIMESTAMP).asInt(0), false)
+        repository.canAccess("closed", authContext.getValue(SDSTestRequest.AUTH_USER).asString(), authContext.getValue(SDSTestRequest.AUTH_HASH).asString(), authContext.getValue(SDSTestRequest.AUTH_TIMESTAMP).asInt(0), false)
     }
 
     def "Write access to closed artifact fails if user does not have the right"() {
-        def authContext = SDSTestHelper.getAuthenticationCredentials("closed")
+        def authContext = SDSTestRequest.getAuthenticationCredentials("closed")
 
         expect:
-        !repository.canWriteAccess("closed", authContext.getValue(SDSTestHelper.AUTH_USER).asString(), authContext.getValue(SDSTestHelper.AUTH_HASH).asString(), authContext.getValue(SDSTestHelper.AUTH_TIMESTAMP).asInt(0))
+        !repository.canWriteAccess("closed", authContext.getValue(SDSTestRequest.AUTH_USER).asString(), authContext.getValue(SDSTestRequest.AUTH_HASH).asString(), authContext.getValue(SDSTestRequest.AUTH_TIMESTAMP).asInt(0))
     }
 
     def "Write access to closed artifact succeeds for write access being granted"() {
-        def authContext = SDSTestHelper.getAuthenticationCredentials("writer")
+        def authContext = SDSTestRequest.getAuthenticationCredentials("writer")
 
         expect:
-        repository.canWriteAccess("closed", authContext.getValue(SDSTestHelper.AUTH_USER).asString(), authContext.getValue(SDSTestHelper.AUTH_HASH).asString(), authContext.getValue(SDSTestHelper.AUTH_TIMESTAMP).asInt(0))
+        repository.canWriteAccess("closed", authContext.getValue(SDSTestRequest.AUTH_USER).asString(), authContext.getValue(SDSTestRequest.AUTH_HASH).asString(), authContext.getValue(SDSTestRequest.AUTH_TIMESTAMP).asInt(0))
     }
 }
