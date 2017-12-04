@@ -1,4 +1,11 @@
 sds-maven-plugin/target
+sds-server/target
+sds-server/data
+
 workspace.xml
 .idea/libraries
-sds-server/target
+.idea/sonarIssues.xml
+.idea/uiDesigner.xml
+.idea/sonarlint
+
+instance.conf
