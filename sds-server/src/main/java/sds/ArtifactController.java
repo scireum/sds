@@ -55,7 +55,7 @@ public class ArtifactController implements Controller {
      */
     @Routed("/")
     public void index(WebContext ctx) {
-        ctx.respondWith().template("view/main.html");
+        ctx.respondWith().template("view/main.html.pasta");
     }
 
     /**

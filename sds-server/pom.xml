@@ -14,7 +14,7 @@
     <parent>
         <groupId>com.scireum</groupId>
         <artifactId>sirius-parent</artifactId>
-        <version>3.0.3</version>
+        <version>3.11.2</version>
     </parent>
     <artifactId>sds-server</artifactId>
     <version>3.0</version>
@@ -32,24 +32,24 @@
         <dependency>
             <groupId>com.scireum</groupId>
             <artifactId>sirius-web</artifactId>
-            <version>8.9</version>
+            <version>11.7</version>
         </dependency>
         <dependency>
             <groupId>com.scireum</groupId>
             <artifactId>sirius-web</artifactId>
-            <version>8.9</version>
+            <version>11.7</version>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.scireum</groupId>
             <artifactId>sirius-kernel</artifactId>
-            <version>6.8.1</version>
+            <version>7.1</version>
         </dependency>
         <dependency>
             <groupId>com.scireum</groupId>
             <artifactId>sirius-kernel</artifactId>
-            <version>6.8.1</version>
+            <version>7.1</version>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>

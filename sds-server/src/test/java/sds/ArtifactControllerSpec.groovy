@@ -22,7 +22,7 @@ class ArtifactControllerSpec extends BaseSpecification {
         when:
         def response = request.executeAndBlock()
         then:
-        response.getTemplateName() == "view/main.html"
+        response.getTemplateName() == "view/main.html.pasta"
         and:
         UserContextHelper.expectNoMessages(response)
     }
