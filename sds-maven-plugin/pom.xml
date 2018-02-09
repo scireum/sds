@@ -16,7 +16,7 @@
         <version>3.0.3</version>
     </parent>
     <artifactId>sds-maven-plugin</artifactId>
-    <version>2.2</version>
+    <version>3.0</version>
     <packaging>maven-plugin</packaging>
     <name>SDS Maven Mojo</name>
     <description>Permits to deploy a maven artifact directly into an SDS server</description>
@@ -57,6 +57,12 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>14.0.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20171018</version>
         </dependency>
     </dependencies>
 </project>

@@ -1,0 +1,16 @@
+{
+  "files": [
+    {
+      name: "abc/def/ghi.datei",
+      crc: 12345
+    },
+    {
+      name: "abc/def/jkl.datei",
+      crc: 67890
+    },
+    {
+      name: "abc/xyz.datei",
+      crc: 4268582530
+    }
+  ]
+}

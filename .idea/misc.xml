@@ -1,9 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="EntryPointsManager">
-    <entry_points version="2.0" />
+    <list size="7">
+      <item index="0" class="java.lang.String" itemvalue="sirius.kernel.di.std.ConfigValue" />
+      <item index="1" class="java.lang.String" itemvalue="sirius.kernel.di.std.Part" />
+      <item index="2" class="java.lang.String" itemvalue="sirius.kernel.di.std.Parts" />
+      <item index="3" class="java.lang.String" itemvalue="sirius.kernel.di.std.PriorityParts" />
+      <item index="4" class="java.lang.String" itemvalue="sirius.kernel.di.std.Register" />
+      <item index="5" class="java.lang.String" itemvalue="sirius.search.annotations.ListType" />
+      <item index="6" class="java.lang.String" itemvalue="sirius.web.controller.Routed" />
+    </list>
+    <pattern value="sirius.kernel.di.Initializable" hierarchically="true" method="initialize" />
+    <pattern value="sirius.kernel.Lifecycle" hierarchically="true" method="started" />
+    <pattern value="sirius.kernel.Lifecycle" hierarchically="true" method="stopped" />
+    <pattern value="sirius.kernel.Lifecycle" hierarchically="true" method="awaitTermination" />
   </component>
-  <component name="IdProvider" IDEtalkID="DBE7F5FCE628C7D5601903EE9ED907F3" />
+  <component name="IdProvider" IDEtalkID="56273E33A4CA28A8BB4C2352222147E5" />
   <component name="MavenProjectsManager">
     <option name="originalFiles">
       <list>
@@ -12,5 +24,7 @@
       </list>
     </option>
   </component>
-  <component name="ProjectRootManager" version="2" languageLevel="JDK_1_8" assert-keyword="true" jdk-15="true" project-jdk-name="1.8" project-jdk-type="JavaSDK" />
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_1_8" default="true" project-jdk-name="1.8" project-jdk-type="JavaSDK">
+    <output url="file://$PROJECT_DIR$/out" />
+  </component>
 </project>
