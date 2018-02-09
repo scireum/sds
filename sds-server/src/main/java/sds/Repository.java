@@ -84,9 +84,8 @@ public class Repository {
      *
      * @param artifact the artifact to start new version of
      * @return token which MUST be used for uploads for the new version
-     * @throws IOException if file operations went wrong
      */
-    public String handleNewArtifactVersion(String artifact) throws IOException {
+    public String handleNewArtifactVersion(String artifact) {
         getLockByArtifact(artifact).lock();
         String artifactToken = null;
         try {
@@ -111,7 +110,7 @@ public class Repository {
             throw e;
         } catch (Exception e) {
             releaseArtifactLock(artifact, artifactToken);
-            throw e;
+            throw Exceptions.handle(e);
         } finally {
             getLockByArtifact(artifact).unlock();
         }
@@ -170,9 +169,8 @@ public class Repository {
      *
      * @param artifact the artifact to finish creation of new version for
      * @param token    token for identifying lock for artifact
-     * @throws IOException if file operations went wrong
      */
-    public void handleFinalizeNewVersion(String artifact, String token) throws IOException {
+    public void handleFinalizeNewVersion(String artifact, String token) {
         getLockByArtifact(artifact).lock();
         try {
             assertArtifactLock(artifact, token);
@@ -193,6 +191,8 @@ public class Repository {
                 throw e;
             }
             releaseArtifactLock(artifact, token);
+        } catch (IOException e) {
+            throw Exceptions.handle(e);
         } finally {
             getLockByArtifact(artifact).unlock();
         }
@@ -203,9 +203,8 @@ public class Repository {
      *
      * @param artifact the artifact to cancel creation of new version for
      * @param token    token for identifying lock for artifact
-     * @throws IOException if deleting of backup or upload directory fails
      */
-    public void handleFinalizeError(String artifact, String token) throws IOException {
+    public void handleFinalizeError(String artifact, String token) {
         getLockByArtifact(artifact).lock();
         try {
             assertArtifactLock(artifact, token);
@@ -219,6 +218,8 @@ public class Repository {
             deletePath(uploadDir);
             deletePath(backupDir);
             releaseArtifactLock(artifact, token);
+        } catch (IOException e) {
+            throw Exceptions.handle(e);
         } finally {
             getLockByArtifact(artifact).unlock();
         }

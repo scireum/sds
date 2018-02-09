@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.stream.Stream;
 
 @RunWith(WildcardPatternSuite.class)
 @SuiteClasses({"**/*Test.class", "**/*Spec.class"})
@@ -43,14 +44,16 @@ public class TestSuite {
             Files.createDirectory(dataDirectory);
 
             Path testFilesDirectory = Paths.get("src/test/resources/testfiles/basefiles");
-            Files.walk(testFilesDirectory).filter(path -> path.toFile().isFile()).forEach(file -> {
-                try {
-                    Files.createDirectories(dataDirectory.resolve(testFilesDirectory.relativize(file.getParent())));
-                    Files.copy(file, dataDirectory.resolve(testFilesDirectory.relativize(file)));
-                } catch (IOException e) {
-                    throw Exceptions.handle(e);
-                }
-            });
+            try (Stream<Path> stream = Files.walk(testFilesDirectory)) {
+                stream.filter(path -> path.toFile().isFile()).forEach(file -> {
+                    try {
+                        Files.createDirectories(dataDirectory.resolve(testFilesDirectory.relativize(file.getParent())));
+                        Files.copy(file, dataDirectory.resolve(testFilesDirectory.relativize(file)));
+                    } catch (IOException e) {
+                        throw Exceptions.handle(e);
+                    }
+                });
+            }
         } catch (IOException e) {
             throw Exceptions.handle(e);
         }

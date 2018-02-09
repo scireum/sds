@@ -154,7 +154,8 @@ public class SDSMojo extends AbstractMojo {
                         if (changedFile.getChangeMode() == ChangeMode.SAME) {
                             return false;
                         }
-                        // if this node is to be deleted and it's parent node, too, then skip this node to minify the number of HTTP requests
+                        // if this node is to be deleted and it's parent node, too, then skip this node to minify the
+                        // number of HTTP requests
                         if (changedFile.getChangeMode() == ChangeMode.DELETED) {
                             return changedFile.getParent() == null
                                    || changedFile.getParent().getChangeMode() != ChangeMode.DELETED;
@@ -238,9 +239,9 @@ public class SDSMojo extends AbstractMojo {
     }
 
     /**
-     * @param artifact
+     * @param artifact the artifact id
      * @return the auth token for the transaction
-     * @throws IOException
+     * @throws IOException if an I/O-Error occurs
      */
     private String requestNewVersion(String artifact) throws IOException {
         JSONObject result =
@@ -250,7 +251,7 @@ public class SDSMojo extends AbstractMojo {
     }
 
     private DiffTree requestFileList(String artifact) throws IOException {
-        JSONObject result = doJSONRequest(computeURL(artifact, "/_index", "&token=" + transactionToken), "GET");
+        JSONObject result = doJSONRequest(computeURL(artifact, "/_index", ""), "GET");
         JSONArray files = result.getJSONArray("files");
 
         return DiffTree.fromJson(files);

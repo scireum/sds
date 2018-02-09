@@ -17,6 +17,7 @@ import sirius.kernel.xml.StructuredOutput;
 import sirius.web.controller.Controller;
 import sirius.web.controller.Routed;
 import sirius.web.http.WebContext;
+import sirius.web.services.JSONStructuredOutput;
 
 import java.io.IOException;
 import java.util.List;
@@ -75,28 +76,21 @@ public class ArtifactController implements Controller {
      *
      * @param ctx the current request
      */
-    @Routed("/artifacts")
-    public void artifacts(WebContext ctx) {
+    @Routed(value = "/artifacts", jsonCall = true)
+    public void artifacts(WebContext ctx, JSONStructuredOutput out) {
         List<String> artifacts = repository.getArtifacts();
-        StructuredOutput out = ctx.respondWith().json();
-        out.beginResult();
-        try {
-            out.property(PARAM_ERROR, false);
-            out.beginArray("artifacts");
-            for (String name : artifacts) {
-                if (repository.canAccess(name,
-                                         ctx.get("user").asString(),
-                                         ctx.get("hash").asString(),
-                                         ctx.get(PARAM_TIMESTAMP).asInt(0))) {
-                    out.beginObject("artifact");
-                    out.property("name", name);
-                    out.endObject();
-                }
+        out.beginArray("artifacts");
+        for (String name : artifacts) {
+            if (repository.canAccess(name,
+                                     ctx.get("user").asString(),
+                                     ctx.get("hash").asString(),
+                                     ctx.get(PARAM_TIMESTAMP).asInt(0))) {
+                out.beginObject("artifact");
+                out.property("name", name);
+                out.endObject();
             }
-            out.endArray();
-        } finally {
-            out.endResult();
         }
+        out.endArray();
     }
 
     /**
@@ -105,27 +99,20 @@ public class ArtifactController implements Controller {
      * @param ctx      the current request
      * @param artifact to list files of
      */
-    @Routed("/artifacts/:1/_index")
-    public void index(WebContext ctx, String artifact) {
-        final StructuredOutput out = ctx.respondWith().json();
-        out.beginResult();
-        try {
-            if (!repository.canAccess(artifact,
-                                      ctx.get("user").asString(),
-                                      ctx.get("hash").asString(),
-                                      ctx.get(PARAM_TIMESTAMP).asInt(0))) {
-                out.property(PARAM_ERROR, true);
-                out.property(PARAM_MESSAGE, Strings.apply(ACCESS_ERROR_MESSAGE, artifact, ctx.get("user").asString()));
-                return;
-            }
-            out.beginArray("files");
-            writeFileInfo(out, artifact);
-        } catch (Exception e) {
-            out.property(PARAM_ERROR, true);
-            out.property(PARAM_MESSAGE, Exceptions.handle(e).getMessage());
-        } finally {
-            out.endResult();
+    @Routed(value = "/artifacts/:1/_index", jsonCall = true)
+    public void index(WebContext ctx, JSONStructuredOutput out, String artifact) {
+        if (!repository.canAccess(artifact,
+                                  ctx.get("user").asString(),
+                                  ctx.get("hash").asString(),
+                                  ctx.get(PARAM_TIMESTAMP).asInt(0))) {
+            throw Exceptions.createHandled()
+                            .withSystemErrorMessage(Strings.apply(ACCESS_ERROR_MESSAGE,
+                                                                  artifact,
+                                                                  ctx.get("user").asString()))
+                            .handle();
         }
+        out.beginArray("files");
+        writeFileInfo(out, artifact);
     }
 
     /**
@@ -134,12 +121,12 @@ public class ArtifactController implements Controller {
      * @param ctx      the current request
      * @param artifact to list files of
      */
-    @Routed("/artifacts/:1/latest/_index")
-    public void legacyIndex(WebContext ctx, String artifact) {
-        index(ctx, artifact);
+    @Routed(value = "/artifacts/:1/latest/_index", jsonCall = true)
+    public void legacyIndex(WebContext ctx, JSONStructuredOutput out, String artifact) {
+        index(ctx, out, artifact);
     }
 
-    private void writeFileInfo(StructuredOutput out, String artifact) {
+    private void writeFileInfo(JSONStructuredOutput out, String artifact) {
         try {
             repository.getFileIndex(artifact, indexFile -> {
                 out.beginObject("entry");
@@ -149,11 +136,8 @@ public class ArtifactController implements Controller {
                 out.endObject();
             });
             out.endArray();
-            out.property(PARAM_ERROR, false);
         } catch (Exception e) {
-            out.endArray();
-            out.property(PARAM_ERROR, true);
-            out.property(PARAM_MESSAGE, Exceptions.handle(e).getMessage());
+            throw Exceptions.handle(e);
         }
     }
 
@@ -163,27 +147,10 @@ public class ArtifactController implements Controller {
      * @param ctx      the current request
      * @param artifact the artifact to prepare a new version for
      */
-    @Routed("/artifacts/:1/_new-version")
-    public void newVersion(WebContext ctx, String artifact) {
-        final StructuredOutput out = ctx.respondWith().json();
-        out.beginResult();
-        try {
-            if (!repository.canWriteAccess(artifact,
-                                           ctx.get("user").asString(),
-                                           ctx.get("hash").asString(),
-                                           ctx.get(PARAM_TIMESTAMP).asInt(0))) {
-                out.property(PARAM_ERROR, true);
-                out.property(PARAM_MESSAGE, Strings.apply(ACCESS_ERROR_MESSAGE, artifact, ctx.get("user").asString()));
-                return;
-            }
-            out.property(PARAM_TOKEN, repository.handleNewArtifactVersion(artifact));
-            out.property(PARAM_ERROR, false);
-        } catch (Exception e) {
-            out.property(PARAM_ERROR, true);
-            out.property(PARAM_MESSAGE, Exceptions.handle(e).getMessage());
-        } finally {
-            out.endResult();
-        }
+    @Routed(value = "/artifacts/:1/_new-version", jsonCall = true)
+    public void newVersion(WebContext ctx, JSONStructuredOutput out, String artifact) {
+        checkWriteAccess(ctx, artifact);
+        out.property(PARAM_TOKEN, repository.handleNewArtifactVersion(artifact));
     }
 
     /**
@@ -192,27 +159,10 @@ public class ArtifactController implements Controller {
      * @param ctx      the current request
      * @param artifact the artifact finalize and release
      */
-    @Routed("/artifacts/:1/_finalize")
-    public void finalizeArtifact(WebContext ctx, String artifact) {
-        final StructuredOutput out = ctx.respondWith().json();
-        out.beginResult();
-        try {
-            if (!repository.canWriteAccess(artifact,
-                                           ctx.get("user").asString(),
-                                           ctx.get("hash").asString(),
-                                           ctx.get(PARAM_TIMESTAMP).asInt(0))) {
-                out.property(PARAM_ERROR, true);
-                out.property(PARAM_MESSAGE, Strings.apply(ACCESS_ERROR_MESSAGE, artifact, ctx.get("user").asString()));
-                return;
-            }
-            repository.handleFinalizeNewVersion(artifact, ctx.getParameter(PARAM_TOKEN));
-            out.property(PARAM_ERROR, false);
-        } catch (Exception e) {
-            out.property(PARAM_ERROR, true);
-            out.property(PARAM_MESSAGE, Exceptions.handle(e).getMessage());
-        } finally {
-            out.endResult();
-        }
+    @Routed(value = "/artifacts/:1/_finalize", jsonCall = true)
+    public void finalizeArtifact(WebContext ctx, JSONStructuredOutput out, String artifact) {
+        checkWriteAccess(ctx, artifact);
+        repository.handleFinalizeNewVersion(artifact, ctx.getParameter(PARAM_TOKEN));
     }
 
     /**
@@ -222,26 +172,22 @@ public class ArtifactController implements Controller {
      * @param ctx      the current request
      * @param artifact the artifact to cancel creation of new version
      */
-    @Routed("/artifacts/:1/_finalize-error")
-    public void finalizeErrorArtifact(WebContext ctx, String artifact) {
-        final StructuredOutput out = ctx.respondWith().json();
-        out.beginResult();
-        try {
-            if (!repository.canWriteAccess(artifact,
-                                           ctx.get("user").asString(),
-                                           ctx.get("hash").asString(),
-                                           ctx.get(PARAM_TIMESTAMP).asInt(0))) {
-                out.property(PARAM_ERROR, true);
-                out.property(PARAM_MESSAGE, Strings.apply(ACCESS_ERROR_MESSAGE, artifact, ctx.get("user").asString()));
-                return;
-            }
-            repository.handleFinalizeError(artifact, ctx.getParameter(PARAM_TOKEN));
-            out.property(PARAM_ERROR, false);
-        } catch (Exception e) {
-            out.property(PARAM_ERROR, true);
-            out.property(PARAM_MESSAGE, Exceptions.handle(e).getMessage());
-        } finally {
-            out.endResult();
+    @Routed(value = "/artifacts/:1/_finalize-error", jsonCall = true)
+    public void finalizeErrorArtifact(WebContext ctx, JSONStructuredOutput out, String artifact) {
+        checkWriteAccess(ctx, artifact);
+        repository.handleFinalizeError(artifact, ctx.getParameter(PARAM_TOKEN));
+    }
+
+    private void checkWriteAccess(WebContext ctx, String artifact) {
+        if (!repository.canWriteAccess(artifact,
+                                       ctx.get("user").asString(),
+                                       ctx.get("hash").asString(),
+                                       ctx.get(PARAM_TIMESTAMP).asInt(0))) {
+            throw Exceptions.createHandled()
+                            .withSystemErrorMessage(Strings.apply(ACCESS_ERROR_MESSAGE,
+                                                                  artifact,
+                                                                  ctx.get("user").asString()))
+                            .handle();
         }
     }
 }

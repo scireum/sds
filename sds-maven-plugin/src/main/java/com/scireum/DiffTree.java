@@ -27,8 +27,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 import java.util.zip.ZipFile;
 
+/**
+ * A tree of {@link DiffTreeNode DiffTreeNodes} which represents the files of a software artifact
+ */
 public class DiffTree {
 
     private DiffTreeNode root;
@@ -45,6 +49,12 @@ public class DiffTree {
         return getRoot().getChild(path);
     }
 
+    /**
+     * Iterates over some nodes in this tree.
+     *
+     * @param visitor will be called for each {@link DiffTreeNode}
+     * @param filter  will be called for each {@link DiffTreeNode}, should return false if a node should be skipped
+     */
     public void iterate(Consumer<? super DiffTreeNode> visitor, Predicate<? super DiffTreeNode> filter) {
         root.iterate(file -> {
             visitor.accept(file);
@@ -53,9 +63,12 @@ public class DiffTree {
     }
 
     /**
-     * @param visitor
-     * @param filter
-     * @return whether all nodes have been visited
+     * Iterates over some nodes in this tree.
+     *
+     * @param visitor will be called for each {@link DiffTreeNode}, should return false if iteration should be canceled
+     * @param filter  will be called for each {@link DiffTreeNode}, should return false if a node should be skipped
+     * @return whether all child nodes and this node have been visited, that is noone has been skipped and
+     * {@code visitor} always returned true
      */
     public boolean iterate(Function<? super DiffTreeNode, Boolean> visitor, Predicate<? super DiffTreeNode> filter) {
         return root.iterate(visitor, filter);
@@ -65,6 +78,13 @@ public class DiffTree {
         iterate(DiffTreeNode::recomputeHash, file -> true);
     }
 
+    /**
+     * Compares this tree with the given {@code changes}-tree.
+     * Updates this tree so that it reflectes the difference to {@code changes} by creating new nodes with
+     * {@link ChangeMode#NEW} or marking existent nodes as {@link ChangeMode#CHANGED} or {@link ChangeMode#DELETED}.
+     *
+     * @param changes the other tree
+     */
     public void calculateDiff(DiffTree changes) {
         changes.iterate(file -> {
             Path absolutePath = file.getAbsolutePath();
@@ -98,16 +118,30 @@ public class DiffTree {
         }, diffTreeNode -> diffTreeNode.getParent() != null);
     }
 
+    /**
+     * Creates a file tree based on a list of json objects. Each JSON object must contain a {@code "name"} and a
+     * {@code "crc"}.
+     *
+     * @param files the json data
+     * @return a {@link DiffTree} that contains all given files with {@link ChangeMode#SAME}
+     */
     public static DiffTree fromJson(JSONArray files) {
         Map<Path, Long> hashes = new HashMap<>();
         for (Object file : files) {
-            JSONObject fileObject = ((JSONObject) file);
+            JSONObject fileObject = (JSONObject) file;
             hashes.put(Paths.get(fileObject.getString("name")), fileObject.getLong("crc"));
         }
 
         return fromMap(hashes);
     }
 
+    /**
+     * Creates a file tree based on the files of a zip archive. {@code ".DS_Store"} and {@code "__MACOSX"} will be
+     * skipped.
+     *
+     * @param zipFile the zip archive
+     * @return a {@link DiffTree} that contains all files of the zip archive with {@link ChangeMode#SAME}
+     */
     public static DiffTree fromZipFile(ZipFile zipFile) {
         Map<Path, Long> hashes = new HashMap<>();
         zipFile.stream().filter(entry -> !entry.isDirectory()).forEach(entry -> {
@@ -119,19 +153,34 @@ public class DiffTree {
         return fromMap(hashes);
     }
 
+    /**
+     * Creates a file tree based on the files of a local directory.
+     *
+     * @param baseDir the path of the local directory
+     * @return a {@link DiffTree} that contains all files of the local directory with {@link ChangeMode#SAME}
+     * @throws IOException if an I/O error is thrown
+     */
     public static DiffTree fromFileSystem(Path baseDir) throws IOException {
         Map<Path, Long> hashes = new HashMap<>();
-        Files.walk(baseDir).forEach(path -> {
-            if (Files.isRegularFile(path)) {
-                try {
-                    long hash = ByteStreams.hash(com.google.common.io.Files.newInputStreamSupplier(path.toFile()),
-                                                 Hashing.crc32()).padToLong();
-                    hashes.put(baseDir.relativize(path), hash);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
+        try (Stream<Path> stream = Files.walk(baseDir)) {
+            stream.forEach(path -> {
+                if (Files.isRegularFile(path)) {
+                    try {
+                        long hash = ByteStreams.hash(com.google.common.io.Files.newInputStreamSupplier(path.toFile()),
+                                                     Hashing.crc32()).padToLong();
+                        hashes.put(baseDir.relativize(path), hash);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
                 }
+            });
+        } catch (RuntimeException e) {
+            if (e.getCause() instanceof IOException) {
+                throw (IOException) e.getCause();
+            } else {
+                throw e;
             }
-        });
+        }
 
         return fromMap(hashes);
     }
@@ -157,6 +206,9 @@ public class DiffTree {
         return tree;
     }
 
+    /**
+     * @return true if any of this tree's nodes has not {@link ChangeMode#SAME}
+     */
     public boolean hasChanges() {
         final AtomicBoolean result = new AtomicBoolean();
         iterate(file -> {
@@ -166,7 +218,11 @@ public class DiffTree {
         return result.get();
     }
 
+    /**
+     * Represents a single file in a file tree
+     */
     public static class DiffTreeNode {
+
         private long hash;
         private Path path;
         private ChangeMode changeMode = ChangeMode.SAME;
@@ -182,6 +238,13 @@ public class DiffTree {
             return parent;
         }
 
+        /**
+         * {@link ChangeMode#CHANGED} will be replicated to all parent nodes until the root node.
+         * <p>
+         * {@link ChangeMode#DELETED} or {@link ChangeMode#NEW} will be replicated to all child nodes.
+         *
+         * @param changeMode the new {@link ChangeMode}
+         */
         public void setChangeMode(ChangeMode changeMode) {
             this.changeMode = changeMode;
             if (changeMode == ChangeMode.CHANGED && getParent() != null) {
@@ -244,14 +307,28 @@ public class DiffTree {
             }
         }
 
+        /**
+         * @return whether this node is a leaf node, that is it represents a file
+         */
         public boolean isFile() {
             return children.isEmpty();
         }
 
+        /**
+         * @return whether this node is not a leaf node, that is it represents a directory
+         */
         public boolean isDirectory() {
             return !isFile();
         }
 
+        /**
+         * Iterates over some child nodes of this node.
+         *
+         * @param visitor will be called for each child and this node, should return false if iteration should be canceled
+         * @param filter  will be called for each child and this node, should return false if a node should be skipped
+         * @return whether all child nodes and this node have been visited, that is noone has been skipped and
+         * {@code visitor} always returned true
+         */
         public boolean iterate(Function<? super DiffTreeNode, Boolean> visitor,
                                Predicate<? super DiffTreeNode> filter) {
             for (DiffTreeNode file : getChildren()) {

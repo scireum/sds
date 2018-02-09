@@ -8,6 +8,9 @@
 
 package com.scireum;
 
+/**
+ * Defines the relation between an old and a new version of a file.
+ */
 public enum ChangeMode {
     /**
      * File has not changed
